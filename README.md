@@ -1,1 +1,1 @@
-MAPOS - Shawl Business Billing Application
+MAPOS - Al Rehman Masjid Sharief Welfare Receipt Management System
