@@ -1,2 +1,5 @@
 streamlit
 reportlab
+pandas
+openpyxl
+st-gsheets-connection
