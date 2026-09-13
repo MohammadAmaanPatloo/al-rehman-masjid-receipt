@@ -9,6 +9,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
     HRFlowable,
+    Image as RLImage,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -19,6 +20,7 @@ import pandas as pd
 import re
 import uuid
 from streamlit_gsheets import GSheetsConnection
+from xml.sax.saxutils import escape
 
 
 # ============================================================
@@ -26,7 +28,7 @@ from streamlit_gsheets import GSheetsConnection
 # ============================================================
 
 st.set_page_config(
-    page_title="Masjid Sharief Welfare Receipt",
+    page_title="Masjid Sharief Receipt",
     page_icon="🕌",
     layout="wide",
 )
@@ -45,7 +47,7 @@ def check_password():
         return True
 
     st.title("🕌 Al Rehman Masjid Sharief")
-    st.subheader("Welfare Receipt System")
+    st.subheader("Masjid Receipt System")
 
     st.info("🔐 Please enter the collector password to continue.")
 
@@ -90,7 +92,7 @@ st.markdown(
 
 # ============================================================
 # MASJID SETTINGS
-# Based on the supplied physical welfare receipt
+# Based on the supplied physical masjid receipt
 # ============================================================
 
 MASJID_NAME = "AL Rehman Masjid Sharief"
@@ -99,10 +101,10 @@ MASJID_BANK = "J&K Bank, Soura"
 MASJID_ACCOUNT = "0204040100000553"
 MASJID_IFSC = "JAKA0SOURA"
 
-# The supplied receipt visibly shows "S.No. M 559".
-# The system starts from 559 and increments automatically.
+# The supplied receipt visibly shows "S.No. M 1001".
+# The system starts from 1001 and increments automatically.
 RECEIPT_PREFIX = "M"
-STARTING_RECEIPT_NO = 559
+STARTING_RECEIPT_NO = 1001
 
 # ============================================================
 # GOOGLE SHEETS CONNECTION
@@ -327,13 +329,11 @@ def number_to_words(number):
 
 # ============================================================
 # PDF RECEIPT GENERATOR
-# ============================================================
-
-
 def generate_receipt_pdf(
     receipt_serial,
     received_from,
     house_no,
+    phone,
     amount,
     purpose,
     month_from,
@@ -427,33 +427,12 @@ def generate_receipt_pdf(
 
     receipt_no = receipt_display_no(receipt_serial)
 
-    header_data = [
-        [
-            Paragraph("<b>Welfare Receipt No.:</b>", normal),
-            Paragraph(receipt_no, label),
-        ]
-    ]
+    story.append(Paragraph(escape(MASJID_NAME), title_style))
+    story.append(Paragraph(escape(MASJID_ADDRESS), subtitle_style))
 
-    header_table = Table(header_data, colWidths=[45 * mm, 35 * mm])
-
-    header_table.setStyle(
-        TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ])
-    )
-
-    story.append(header_table)
-    story.append(Spacer(1, 1))
-
-    story.append(Paragraph(MASJID_NAME, title_style))
-    story.append(Paragraph(MASJID_ADDRESS, subtitle_style))
     story.append(
         Paragraph(
-            f"{MASJID_BANK} | A/C No. {MASJID_ACCOUNT} | IFSC: {MASJID_IFSC}",
+            escape(f"{MASJID_BANK} | A/C No. {MASJID_ACCOUNT} | IFSC: {MASJID_IFSC}"),
             small_center,
         )
     )
@@ -482,14 +461,20 @@ def generate_receipt_pdf(
             Paragraph(date_value, normal),
         ],
         [
-            Paragraph("<b>Received with Thanks From</b>", normal),
+            Paragraph("<b>Received From</b>", normal),
             Paragraph(received_from, normal),
             Paragraph("<b>House No.</b>", normal),
             Paragraph(house_no or "—", normal),
         ],
         [
-            Paragraph("<b>The Sum of Rupees</b>", normal),
-            Paragraph(f"₹ {amount:,.2f}", amount_style),
+            Paragraph("<b>Phone Number</b>", normal),
+            Paragraph(phone or "—", normal),
+            "",
+            "",
+        ],
+        [
+            Paragraph("<b>Amount</b>", normal),
+            Paragraph(f"Rs. {amount:,.2f}", amount_style),
             "",
             "",
         ],
@@ -500,7 +485,7 @@ def generate_receipt_pdf(
             "",
         ],
         [
-            Paragraph("<b>For the Month of</b>", normal),
+            Paragraph("<b>Month - From</b>", normal),
             Paragraph(month_from, normal),
             Paragraph("<b>To</b>", normal),
             Paragraph(month_to, normal),
@@ -508,6 +493,12 @@ def generate_receipt_pdf(
         [
             Paragraph("<b>Payment Mode</b>", normal),
             Paragraph(payment_mode, normal),
+            "",
+            "",
+        ],
+        [
+            Paragraph("<b>Amount in Words</b>", normal),
+            Paragraph(number_to_words(amount), normal),
             "",
             "",
         ],
@@ -526,46 +517,63 @@ def generate_receipt_pdf(
             ("RIGHTPADDING", (0, 0), (-1, -1), 3),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            # Merge cells for long fields.
+            # The following rows use the full width:
+            # Phone
             ("SPAN", (1, 2), (3, 2)),
+            # Amount
             ("SPAN", (1, 3), (3, 3)),
-            ("SPAN", (1, 5), (3, 5)),
+            # Purpose
+            ("SPAN", (1, 4), (3, 4)),
+            # Payment Mode
+            ("SPAN", (1, 6), (3, 6)),
+            # Amount in Words
+            ("SPAN", (1, 7), (3, 7)),
         ])
     )
 
     story.append(content_table)
     story.append(Spacer(1, 3))
 
-    # --------------------------------------------------------
-    # AMOUNT IN WORDS
-    # --------------------------------------------------------
-
-    story.append(
-        Paragraph(
-            f"<b>Amount in Words:</b> {number_to_words(amount)}",
-            words_style,
-        )
-    )
-
     story.append(Spacer(1, 3))
 
     # --------------------------------------------------------
-    # SIGNATURE + BANK DETAILS
+    # FOOTER + DIGITAL SIGNATURE
     # --------------------------------------------------------
 
+    signature_image = RLImage(
+        "dad_sign.jpeg",
+        width=42 * mm,
+        height=16 * mm,
+    )
+
+    # Left side footer text
+    footer_content = [
+        Paragraph(
+            "This receipt is issued for Masjid contribution records.",
+            small_center,
+        ),
+        Spacer(1, 2),
+        Paragraph(
+            "Powered by MAPOS",
+            small_center,
+        ),
+    ]
+
+    # Right side signature
+    signature_content = [
+        Paragraph("Signature", small_center),
+        Spacer(1, 1),
+        signature_image,
+        Spacer(1, 1),
+        Paragraph("________________________", small_center),
+    ]
+
+    # Two-column footer
     footer_table = Table(
         [
             [
-                Paragraph(
-                    f"<b>Bank Details:</b> {MASJID_BANK}<br/>"
-                    f"A/C No.: {MASJID_ACCOUNT}<br/>"
-                    f"IFSC: {MASJID_IFSC}",
-                    small_center,
-                ),
-                Paragraph(
-                    "Signature<br/><br/>________________________",
-                    small_center,
-                ),
+                footer_content,
+                signature_content,
             ]
         ],
         colWidths=[105 * mm, 78 * mm],
@@ -574,23 +582,19 @@ def generate_receipt_pdf(
     footer_table.setStyle(
         TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+            # Left footer
+            ("ALIGN", (0, 0), (0, 0), "CENTER"),
+            # Right signature
+            ("ALIGN", (1, 0), (1, 0), "CENTER"),
             ("LEFTPADDING", (0, 0), (-1, -1), 2),
             ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-            ("TOPPADDING", (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ])
     )
 
+    story.append(Spacer(1, 3))
     story.append(footer_table)
-
-    story.append(Spacer(1, 2))
-
-    story.append(
-        Paragraph(
-            "This receipt is issued for Masjid welfare / contribution records.",
-            small_center,
-        )
-    )
 
     doc.build(story)
 
@@ -702,7 +706,7 @@ if "generated_receipt_no" not in st.session_state:
 # HEADER
 # ============================================================
 
-st.title("🕌 Al Rehman Welfare Receipt System")
+st.title("🕌 Al Rehman Masjid Receipt System")
 st.caption(
     "Digital receipt generation, Google Sheets records and printable PDF receipts"
 )
@@ -733,8 +737,8 @@ with st.sidebar:
     st.info(f"Next Receipt: **{receipt_display_no(st.session_state.receipt_serial)}**")
 
     st.caption(
-        "The supplied physical receipt shows S.No. M 559, so the digital system "
-        "starts from M-559 unless existing Google Sheet records require a higher number."
+        "The digital system starts from M-1001 unless existing Google Sheet "
+        "records require a higher number."
     )
 
 
@@ -742,13 +746,13 @@ with st.sidebar:
 # RECEIPT FORM
 # ============================================================
 
-st.header("Create Welfare Receipt")
+st.header("Create Masjid Receipt")
 
 col1, col2 = st.columns(2)
 
 with col1:
     received_from = st.text_input(
-        "Received with Thanks From *",
+        "Received From *",
         placeholder="e.g. Mohammad Amaan",
     )
 
@@ -765,7 +769,7 @@ with col1:
     )
 
     phone = st.text_input(
-        "Phone / WhatsApp Number",
+        "Phone Number",
         max_chars=10,
         placeholder="10-digit number",
     )
@@ -777,7 +781,6 @@ with col2:
             "Monthly Contribution",
             "Donation",
             "Fire Wood",
-            "Masjid Welfare",
             "Other",
         ],
     )
@@ -788,18 +791,95 @@ with col2:
     else:
         selected_purpose = purpose
 
-    month_from = st.date_input(
-        "For the Month - From",
-        value=datetime.now().date(),
-        format="DD/MM/YYYY",
-    )
+    # ============================================================
+    # MONTH-WISE CONTRIBUTION PERIOD
+    # ============================================================
 
-    month_to = st.date_input(
-        "To",
-        value=datetime.now().date(),
-        format="DD/MM/YYYY",
-    )
+    month_names = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ]
 
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+
+    # -------------------------
+    # FROM MONTH
+    # -------------------------
+
+    st.markdown("**Month - From**")
+
+    from_col1, from_col2 = st.columns([2, 1])
+
+    with from_col1:
+        from_month = st.selectbox(
+            "Month",
+            month_names,
+            index=current_month - 1,
+            key="from_month",
+            label_visibility="collapsed",
+        )
+
+    with from_col2:
+        from_year = st.number_input(
+            "Year",
+            min_value=1900,
+            max_value=2100,
+            value=current_year,
+            step=1,
+            key="from_year",
+            label_visibility="collapsed",
+        )
+
+    # -------------------------
+    # TO MONTH
+    # -------------------------
+
+    st.markdown("**To**")
+
+    to_col1, to_col2 = st.columns([2, 1])
+
+    with to_col1:
+        # Default to next month
+        if current_month == 12:
+            default_to_month = 0
+        else:
+            default_to_month = current_month
+
+        to_month = st.selectbox(
+            "Month",
+            month_names,
+            index=default_to_month,
+            key="to_month",
+            label_visibility="collapsed",
+        )
+
+    with to_col2:
+        default_to_year = current_year + 1 if current_month == 12 else current_year
+
+        to_year = st.number_input(
+            "Year",
+            min_value=1900,
+            max_value=2100,
+            value=default_to_year,
+            step=1,
+            key="to_year",
+            label_visibility="collapsed",
+        )
+
+    # Create final values for PDF and Google Sheets
+    month_from = f"{from_month} {int(from_year)}"
+    month_to = f"{to_month} {int(to_year)}"
     payment_mode = st.selectbox(
         "Payment Mode",
         ["Cash", "UPI", "Bank Transfer", "Cheque", "Other"],
@@ -841,9 +921,23 @@ st.write(
 # ============================================================
 # GENERATE RECEIPT
 # ============================================================
+# ============================================================
+# MONTH RANGE VALIDATION
+# ============================================================
+from_date_for_comparison = datetime(
+    int(from_year),
+    month_names.index(from_month) + 1,
+    1,
+)
+
+to_date_for_comparison = datetime(
+    int(to_year),
+    month_names.index(to_month) + 1,
+    1,
+)
 
 st.divider()
-st.header("Generate Receipt")
+st.header("Generate Masjid Receipt")
 
 generate_receipt = st.button(
     "🧾 Generate & Save Receipt",
@@ -867,8 +961,8 @@ if generate_receipt:
     elif not selected_purpose:
         st.error("❌ Please select or enter the purpose.")
 
-    elif month_to < month_from:
-        st.error("❌ 'To' date cannot be earlier than 'From' date.")
+    elif to_date_for_comparison < from_date_for_comparison:
+        st.error("❌ 'To' month cannot be earlier than 'From' month.")
 
     elif st.session_state.receipt_saved:
         st.warning(
@@ -885,10 +979,11 @@ if generate_receipt:
                 receipt_serial=serial,
                 received_from=received_from.strip(),
                 house_no=house_no.strip(),
+                phone=phone.strip(),
                 amount=amount,
                 purpose=selected_purpose,
-                month_from=month_from.strftime("%d/%m/%Y"),
-                month_to=month_to.strftime("%d/%m/%Y"),
+                month_from=month_from,
+                month_to=month_to,
                 payment_mode=payment_mode,
                 date_value=date_value.strftime("%d/%m/%Y"),
             )
@@ -900,8 +995,8 @@ if generate_receipt:
                 house_no=house_no.strip(),
                 amount=amount,
                 purpose=selected_purpose,
-                month_from=month_from.strftime("%d/%m/%Y"),
-                month_to=month_to.strftime("%d/%m/%Y"),
+                month_from=month_from,
+                month_to=month_to,
                 payment_mode=payment_mode,
                 phone=phone.strip(),
                 date_value=date_value.strftime("%d/%m/%Y"),
@@ -959,13 +1054,14 @@ if st.session_state.pdf_bytes:
 
     if whatsapp_number:
         whatsapp_message = (
-            f"Assalamu Alaikum {received_from},\n\n"
+            f"Asalamualikum {received_from},\n\n"
             f"Thank you for your contribution to {MASJID_NAME}.\n\n"
-            f"Welfare Receipt: {st.session_state.generated_receipt_no}\n"
+            f"Masjid Receipt: {st.session_state.generated_receipt_no}\n"
             f"Amount: ₹{amount:,.2f}\n"
             f"Purpose: {selected_purpose}\n"
             f"Date: {date_value.strftime('%d/%m/%Y')}\n\n"
-            f"JazakAllah Khair."
+            f"Please find your receipt attached.\n\n"
+            f"Jazakallah Khair."
         )
 
         whatsapp_url = f"https://wa.me/{whatsapp_number}?text={quote(whatsapp_message)}"
@@ -1051,7 +1147,6 @@ else:
         width="stretch",
     )
 
-
 # ============================================================
 # SUMMARY
 # ============================================================
@@ -1059,6 +1154,10 @@ else:
 if not receipts_df.empty:
     st.divider()
     st.subheader("📈 Collection Summary")
+
+    # --------------------------------------------------------
+    # OVERALL TOTALS
+    # --------------------------------------------------------
 
     total_collection = (
         pd
@@ -1080,6 +1179,80 @@ if not receipts_df.empty:
     with summary2:
         st.metric("Total Collection", f"₹{total_collection:,.2f}")
 
+    # --------------------------------------------------------
+    # ITEM-WISE COLLECTION BY RECEIPT DATE
+    # --------------------------------------------------------
+
+    st.markdown("---")
+    st.markdown("### 📊 Item-wise Collection")
+
+    # Convert Date column to actual dates
+    summary_df = receipts_df.copy()
+
+    summary_df["Date"] = pd.to_datetime(
+        summary_df["Date"],
+        dayfirst=True,
+        errors="coerce",
+    )
+
+    # Create month options from Date column
+    available_months = (
+        summary_df["Date"]
+        .dropna()
+        .dt.to_period("M")
+        .drop_duplicates()
+        .sort_values(ascending=False)
+    )
+
+    month_options = [month.strftime("%B %Y") for month in available_months]
+
+    if month_options:
+        selected_month = st.selectbox(
+            "Month",
+            month_options,
+            key="collection_summary_month",
+        )
+
+        selected_period = pd.Period(
+            selected_month,
+            freq="M",
+        )
+
+        # ----------------------------------------------------
+        # FILTER USING RECEIPT DATE
+        # ----------------------------------------------------
+
+        month_filtered = summary_df[
+            summary_df["Date"].dt.to_period("M") == selected_period
+        ].copy()
+
+        # ----------------------------------------------------
+        # ITEM-WISE TOTAL
+        # ----------------------------------------------------
+
+        item_summary = (
+            month_filtered
+            .groupby("Purpose", as_index=False)["Amount"]
+            .sum()
+            .sort_values("Amount", ascending=False)
+        )
+
+        st.markdown(f"#### Item-wise Collection — {selected_month}")
+
+        if not item_summary.empty:
+            # Show item totals
+            for _, row in item_summary.iterrows():
+                st.metric(row["Purpose"], f"₹{row['Amount']:,.2f}")
+
+            # Total for selected month
+            month_total = item_summary["Amount"].sum()
+
+            st.markdown("---")
+
+            st.metric(f"Total Collection — {selected_month}", f"₹{month_total:,.2f}")
+
+        else:
+            st.info(f"No collections recorded during {selected_month}.")
 
 # ============================================================
 # NEW RECEIPT
