@@ -1,1 +1,1 @@
-MAPOS - Al Rehman Masjid Sharief Welfare Receipt Management System
+MAPOS - AL Rehman Masjid Digital Receipt & Accounts System
