@@ -51,13 +51,21 @@ def check_password():
 
     st.info("🔐 Please enter the collector password to continue.")
 
-    password = st.text_input(
-        "Password",
-        type="password",
-        placeholder="Enter collector password",
-    )
+    # Login form
+    with st.form("login_form"):
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="Enter collector password",
+        )
 
-    if st.button("🔓 Login", type="primary", width="stretch"):
+        login = st.form_submit_button(
+            "🔓 Login",
+            type="primary",
+            width="stretch",
+        )
+
+    if login:
         correct_password = st.secrets["auth"]["password"]
 
         if hmac.compare_digest(password, correct_password):
@@ -102,9 +110,9 @@ MASJID_ACCOUNT = "0204040100000553"
 MASJID_IFSC = "JAKA0SOURA"
 
 # The supplied receipt visibly shows "S.No. M 1001".
-# The system starts from 1001 and increments automatically.
+# The system starts from 515 and increments automatically.
 RECEIPT_PREFIX = "M"
-STARTING_RECEIPT_NO = 1001
+STARTING_RECEIPT_NO = 515
 
 # ============================================================
 # GOOGLE SHEETS CONNECTION
@@ -113,14 +121,35 @@ STARTING_RECEIPT_NO = 1001
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # ============================================================
+# CACHE SYNC TRACKING
+# ============================================================
+
+CACHE_SYNC_TIMES = {}
+
+
+def mark_cache_synced(name):
+    CACHE_SYNC_TIMES[name] = datetime.now()
+
+
+def get_last_synced():
+    if not CACHE_SYNC_TIMES:
+        return "Not synced yet"
+
+    latest = max(CACHE_SYNC_TIMES.values())
+
+    return latest.strftime("%d-%m-%Y %I:%M:%S %p")
+
+
+# ============================================================
 # GOOGLE SHEETS HELPERS
 # ============================================================
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=120)
 def get_receipts():
     try:
-        df = conn.read(worksheet="Receipts", ttl=30)
+        df = conn.read(worksheet="Receipts", ttl=120)
+        mark_cache_synced("Receipts")
 
         if df.empty:
             return pd.DataFrame()
@@ -136,6 +165,7 @@ def get_receipts():
             "Month To",
             "Payment Mode",
             "Phone",
+            "Monthly Contribution Paid Upto",
             "Status",
         ]
 
@@ -161,10 +191,863 @@ def get_receipts():
         if "Amount" in df.columns:
             df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0.0)
 
+        if "Date" in df.columns:
+            df["_Parsed Date"] = pd.to_datetime(
+                df["Date"],
+                dayfirst=True,
+                errors="coerce",
+            )
+
         return df
 
     except Exception:
         return pd.DataFrame()
+
+
+@st.cache_data(ttl=120)
+def get_masjid_residents():
+    try:
+        df = conn.read(
+            worksheet="Masjid Residents",
+            ttl=120,
+        )
+        mark_cache_synced("Masjid Residents")
+
+        if df.empty:
+            return pd.DataFrame()
+
+        # Clean column names
+        df.columns = df.columns.astype(str).str.strip()
+
+        # Clean values
+        for col in [
+            "H No.",
+            "Name",
+            "Phone Number",
+            "Monthly Contribution Paid Upto",
+            "Fire Wood Contribution Paid Upto",
+        ]:
+            if col in df.columns:
+                df[col] = (
+                    df[col]
+                    .fillna("")
+                    .astype(str)
+                    .str.replace(r"\.0$", "", regex=True)
+                    .str.strip()
+                )
+
+        return df
+
+    except Exception as e:
+        st.error(f"Could not load Masjid Residents: {e}")
+        return pd.DataFrame()
+
+
+residents_df = get_masjid_residents()
+
+# ============================================================
+# Masjid Monthly - GOOGLE SHEETS STATEMENT
+# ============================================================
+
+MASJID_MONTHY_SHEET = "Masjid Monthly"
+
+
+# def money(value):
+#     """Safely convert a value to float."""
+#     try:
+#         value = pd.to_numeric(value, errors="coerce")
+#         if pd.isna(value):
+#             return 0.0
+#         return float(value)
+#     except Exception:
+#         return 0.0
+
+
+# def get_monthly_statement_data(selected_period):
+#     """
+#     Calculate all values required for the monthly Masjid statement.
+#     """
+
+#     receipts = get_receipts()
+
+#     if receipts.empty:
+#         receipts = pd.DataFrame()
+
+#     # --------------------------------------------------------
+#     # RECEIPTS
+#     # --------------------------------------------------------
+
+#     income = {
+#         "Monthly Contribution": 0.0,
+#         "Friday Collections": 0.0,
+#         "Donation": 0.0,
+#         "Recovery from Imam Sahib": 0.0,
+#         "Fire Wood Contribution": 0.0,
+#     }
+
+#     if not receipts.empty and "Date" in receipts.columns:
+#         receipts = receipts.copy()
+
+#         receipts["Parsed Date"] = pd.to_datetime(
+#             receipts["Date"],
+#             dayfirst=True,
+#             errors="coerce",
+#         )
+
+#         monthly_receipts = receipts[
+#             receipts["Parsed Date"].dt.to_period("M") == selected_period
+#         ].copy()
+
+#         if not monthly_receipts.empty:
+#             monthly_receipts["Amount"] = pd.to_numeric(
+#                 monthly_receipts["Amount"],
+#                 errors="coerce",
+#             ).fillna(0.0)
+
+#             for _, row in monthly_receipts.iterrows():
+#                 purpose = str(row.get("Purpose", "")).strip()
+
+#                 amount = money(row.get("Amount", 0))
+
+#                 if purpose in income:
+#                     income[purpose] += amount
+
+#                 elif purpose == "Other":
+#                     income["Miscellaneous"] += amount
+
+#     # --------------------------------------------------------
+#     # EXPENSES
+#     # --------------------------------------------------------
+
+#     expenses = {
+#         "Salary Paid to Imam Sahib": 0.0,
+#         "Salary Paid to Khadim": 0.0,
+#         "Masjid Electricity Paid": 0.0,
+#         "Darasgah Electricity Paid": 0.0,
+#         "Other Expenses": 0.0,
+#     }
+
+#     try:
+#         expense_df = get_expenses()
+
+#         if not expense_df.empty and "Date" in expense_df.columns:
+#             expense_df = expense_df.copy()
+
+#             expense_df["Parsed Date"] = pd.to_datetime(
+#                 expense_df["Date"],
+#                 dayfirst=True,
+#                 errors="coerce",
+#             )
+
+#             monthly_expenses = expense_df[
+#                 expense_df["Parsed Date"].dt.to_period("M") == selected_period
+#             ].copy()
+
+#             if not monthly_expenses.empty:
+#                 monthly_expenses["Amount"] = pd.to_numeric(
+#                     monthly_expenses["Amount"],
+#                     errors="coerce",
+#                 ).fillna(0.0)
+
+#                 for _, row in monthly_expenses.iterrows():
+#                     category = str(
+#                         row.get(
+#                             "Particular",
+#                             row.get(
+#                                 "Expense Type",
+#                                 "",
+#                             ),
+#                         )
+#                     ).strip()
+
+#                     amount = money(row.get("Amount", 0))
+
+#                     category_lower = category.lower()
+
+#                     if "salary" in category_lower:
+#                         if "imam" in category_lower:
+#                             expenses["Salary Paid to Imam Sahib"] += amount
+
+#                         elif "khadim" in category_lower:
+#                             expenses["Salary Paid to Khadim"] += amount
+
+#                     elif "masjid electricity" in category_lower:
+#                         expenses["Masjid Electricity Paid"] += amount
+
+#                     elif "darasgah electricity" in category_lower:
+#                         expenses["Darasgah Electricity Paid"] += amount
+
+#                     else:
+#                         expenses["Other Expenses"] += amount
+
+#     except Exception:
+#         pass
+
+#     # --------------------------------------------------------
+#     # PREVIOUS MONTH BALANCES
+#     # --------------------------------------------------------
+
+#     opening_cash, opening_bank = get_previous_month_balances(selected_period)
+#     opening_cash = 0.0
+#     opening_bank = 0.0
+
+#     try:
+#         previous_period = selected_period - 1
+
+#         previous_accounts = conn.read(
+#             worksheet=MASJID_MONTHY_SHEET,
+#             ttl=0,
+#         )
+
+#         if not previous_accounts.empty:
+#             previous_accounts.columns = previous_accounts.columns.astype(
+#                 str
+#             ).str.strip()
+
+#             if "Month" in previous_accounts.columns:
+#                 previous_accounts["_ParsedMonth"] = pd.to_datetime(
+#                     previous_accounts["Month"],
+#                     format="%B %Y",
+#                     errors="coerce",
+#                 ).dt.to_period("M")
+
+#                 previous = previous_accounts[
+#                     previous_accounts["_ParsedMonth"] == previous_period
+#                 ]
+
+#                 if not previous.empty:
+#                     previous_row = previous.iloc[-1]
+
+#                     opening_cash = money(
+#                         previous_row.get(
+#                             "Cash in Hand",
+#                             0,
+#                         )
+#                     )
+
+#                     opening_bank = money(
+#                         previous_row.get(
+#                             "Bank Balance",
+#                             0,
+#                         )
+#                     )
+
+#     except Exception:
+#         pass
+
+#     # --------------------------------------------------------
+#     # TOTALS
+#     # --------------------------------------------------------
+
+#     total_receipt_income = sum(income.values())
+
+#     total_expenses = sum(expenses.values())
+
+#     available_funds = opening_cash + opening_bank + total_receipt_income
+
+#     return {
+#         "opening_cash": opening_cash,
+#         "opening_bank": opening_bank,
+#         "income": income,
+#         "total_receipt_income": total_receipt_income,
+#         "expenses": expenses,
+#         "total_expenses": total_expenses,
+#         "available_funds": available_funds,
+#     }
+
+
+def save_masjid_monthy_statement(
+    month_name,
+    year,
+    opening_cash,
+    opening_bank,
+    additions_during_month,
+    monthly_contribution,
+    friday_idd,
+    donation,
+    recovery,
+    fire_wood,
+    salary_khadim,
+    salary_imam,
+    masjid_electricity,
+    darasgah_electricity,
+    other_expenses,
+    deposits_credits,
+    withdrawals_debits,
+    closing_bank,
+    closing_cash,
+):
+    try:
+        spreadsheet = conn.client._open_spreadsheet()
+        worksheet = spreadsheet.worksheet(MASJID_MONTHY_SHEET)
+
+        month_text = f"{month_name} {year}"
+
+        title = f"Income Expenditure details for month of {month_text}"
+
+        # ---------------------------------------------------------
+        # TOTALS
+        # ---------------------------------------------------------
+
+        total_income = opening_cash + additions_during_month + opening_bank
+
+        total_expenses = (
+            salary_khadim
+            + salary_imam
+            + masjid_electricity
+            + darasgah_electricity
+            + other_expenses
+        )
+
+        total_statement = total_expenses + closing_bank + closing_cash
+
+        # ---------------------------------------------------------
+        # HEADER
+        # New layout:
+        #
+        # A = Income Particulars
+        # B = Income Amount
+        # C = Separator
+        # D = Expense Particulars
+        # E = Expense Amount
+        # ---------------------------------------------------------
+
+        worksheet.update(
+            values=[[title]],
+            range_name="A1",
+        )
+
+        worksheet.update(
+            values=[["Income Side"]],
+            range_name="A2",
+        )
+
+        worksheet.update(
+            values=[["Expenses Side"]],
+            range_name="D2",
+        )
+
+        worksheet.update(
+            values=[["Particulars", "Amount"]],
+            range_name="A3:B3",
+        )
+
+        worksheet.update(
+            values=[["Particulars", "Amount"]],
+            range_name="D3:E3",
+        )
+
+        # ---------------------------------------------------------
+        # INCOME SIDE
+        # A = Particulars
+        # B = Amount
+        # ---------------------------------------------------------
+
+        income_values = [
+            ["Last Months Cash in Hand", opening_cash],  # Row 4
+            ["Additions During the month", additions_during_month],  # Row 5
+            ["", ""],  # Row 6
+            ["a) Monthly Contribution", monthly_contribution],  # Row 7
+            ["b) Friday Collections", friday_idd],  # Row 8
+            ["c) Donation", donation],  # Row 9
+            ["", ""],  # Row 10
+            ["Recovery from Imaam Sahib", recovery],  # Row 11
+            ["Fire Wood Contribution", fire_wood],  # Row 12
+            [
+                "Last Months Balance in Bank excluding Interest",
+                opening_bank,
+            ],  # Row 13
+            ["Total", total_income],  # Row 14
+        ]
+
+        worksheet.update(
+            values=income_values,
+            range_name="A4:B14",
+        )
+
+        # ---------------------------------------------------------
+        # EXPENSE SIDE
+        # D = Particulars
+        # E = Amount
+        # ---------------------------------------------------------
+
+        expense_values = [
+            ["Salary Paid to Khadim Sahib.", salary_khadim],  # Row 4
+            ["Salary Paid to Imam Sahib.", salary_imam],  # Row 5
+            ["a) Masjid Electricity Paid", masjid_electricity],  # Row 6
+            ["b) Darasgah Electricity Paid", darasgah_electricity],  # Row 7
+            ["Amount Credited to Bank", deposits_credits],  # Row 8
+            ["Amount Debited from Bank", withdrawals_debits],  # Row 9
+            ["", ""],  # Row 10
+            ["", ""],  # Row 11
+            [
+                "Balance with J&K Bank excluding Interest",
+                closing_bank,
+            ],  # Row 12
+            ["Cash in Hand", closing_cash],  # Row 13
+            ["Total", total_statement],  # Row 14
+        ]
+
+        worksheet.update(
+            values=expense_values,
+            range_name="D4:E14",
+        )
+
+        # ---------------------------------------------------------
+        # BOLD HEADINGS
+        # ---------------------------------------------------------
+
+        worksheet.format(
+            "A2",
+            {"textFormat": {"bold": True}},
+        )
+
+        worksheet.format(
+            "D2",
+            {"textFormat": {"bold": True}},
+        )
+
+        worksheet.format(
+            "A3:B3",
+            {"textFormat": {"bold": True}},
+        )
+
+        worksheet.format(
+            "D3:E3",
+            {"textFormat": {"bold": True}},
+        )
+
+        # Bold Income Total
+        worksheet.format(
+            "A14:B14",
+            {"textFormat": {"bold": True}},
+        )
+
+        # Bold Expenses Total
+        worksheet.format(
+            "D14:E14",
+            {"textFormat": {"bold": True}},
+        )
+        # Make title bold as well
+        worksheet.format(
+            "A1",
+            {"textFormat": {"bold": True}},
+        )
+
+        return True, f"{month_text} saved successfully to Masjid Monthly."
+
+    except Exception as e:
+        return False, f"Failed to save Masjid Monthly statement: {e}"
+
+
+def select_resident_by_name():
+    selected_name = st.session_state.selected_resident_name
+
+    # ----------------------------------------------------
+    # NON RESIDENT
+    # ----------------------------------------------------
+    if selected_name == "➕ Non Resident":
+        st.session_state.selected_resident_house = "-- Select House No. --"
+        st.session_state.resident_phone = ""
+        st.session_state.resident_paid_upto = ""
+        st.session_state.resident_firewood_paid_upto = ""
+        return
+
+    # ----------------------------------------------------
+    # NO RESIDENT SELECTED
+    # ----------------------------------------------------
+    if selected_name == "-- Select Resident --":
+        st.session_state.selected_resident_house = "-- Select House No. --"
+        st.session_state.resident_phone = ""
+        st.session_state.resident_paid_upto = ""
+        st.session_state.resident_firewood_paid_upto = ""
+        return
+
+    # ----------------------------------------------------
+    # NORMAL RESIDENT
+    # ----------------------------------------------------
+    match = residents_df[residents_df["Name"].astype(str).str.strip() == selected_name]
+
+    if not match.empty:
+        resident = match.iloc[0]
+
+        st.session_state.selected_resident_house = str(resident["H No."]).strip()
+
+        st.session_state.resident_phone = str(resident["Phone Number"]).strip()
+
+        st.session_state.resident_paid_upto = str(
+            resident.get("Monthly Contribution Paid Upto", "")
+        ).strip()
+
+        firewood_paid_upto = resident.get("Fire Wood Contribution Paid Upto", "")
+
+        if pd.isna(firewood_paid_upto):
+            firewood_paid_upto = ""
+
+        st.session_state.resident_firewood_paid_upto = (
+            str(firewood_paid_upto).replace(".0", "").strip()
+        )
+
+
+def select_resident_by_house():
+    selected_house = st.session_state.selected_resident_house
+
+    if selected_house == "-- Select House No. --":
+        st.session_state.selected_resident_name = "-- Select Resident --"
+        st.session_state.resident_phone = ""
+        st.session_state.resident_paid_upto = ""
+        st.session_state.resident_firewood_paid_upto = ""
+        return
+
+    match = residents_df[
+        residents_df["H No."].astype(str).str.strip() == selected_house
+    ]
+
+    if not match.empty:
+        resident = match.iloc[0]
+
+        st.session_state.selected_resident_name = str(resident["Name"]).strip()
+
+        st.session_state.resident_phone = str(resident["Phone Number"]).strip()
+
+        st.session_state.resident_paid_upto = str(
+            resident.get("Monthly Contribution Paid Upto", "")
+        ).strip()
+
+        firewood_paid_upto = resident.get("Fire Wood Contribution Paid Upto", "")
+
+        if pd.isna(firewood_paid_upto):
+            firewood_paid_upto = ""
+
+        st.session_state.resident_firewood_paid_upto = (
+            str(firewood_paid_upto).replace(".0", "").strip()
+        )
+
+
+# def update_resident_paid_upto(received_from, house_no, month_to):
+#     """
+#     Update the Paid Upto value in the Masjid Residents sheet
+#     after a receipt is successfully saved.
+#     """
+
+#     try:
+#         residents = conn.read(
+#             worksheet="Masjid Residents",
+#             ttl=0,
+#         )
+
+#         if residents.empty:
+#             return False, "Masjid Residents sheet is empty."
+
+#         # Clean column names
+#         residents.columns = residents.columns.astype(str).str.strip()
+
+#         # Create Monthly Contribution Paid Upto column if it does not exist
+#         if "Monthly Contribution Paid Upto" not in residents.columns:
+#             residents["Monthly Contribution Paid Upto"] = ""
+
+#         # Clean matching fields
+#         residents["Name"] = residents["Name"].fillna("").astype(str).str.strip()
+
+#         residents["H No."] = (
+#             residents["H No."]
+#             .fillna("")
+#             .astype(str)
+#             .str.replace(r"\.0$", "", regex=True)
+#             .str.strip()
+#         )
+
+#         target_name = str(received_from).strip()
+#         target_house = str(house_no).strip()
+
+#         # Find resident using BOTH Name and House No.
+#         match = residents["Name"].eq(target_name) & residents["H No."].eq(target_house)
+
+#         if not match.any():
+#             return (
+#                 False,
+#                 f"Resident '{target_name}' (House No. {target_house}) was not found.",
+#             )
+
+#         # Update Monthly Contribution Paid Upto
+#         residents.loc[match, "Monthly Contribution Paid Upto"] = month_to
+
+#         # Keep Monthly Contribution Paid Upto near Phone Number
+#         columns = list(residents.columns)
+
+#         if "Monthly Contribution Paid Upto" in columns:
+#             columns.remove("Monthly Contribution Paid Upto")
+
+#         phone_index = (
+#             columns.index("Phone Number") if "Phone Number" in columns else len(columns)
+#         )
+
+#         columns.insert(phone_index + 1, "Monthly Contribution Paid Upto")
+
+#         residents = residents[columns]
+
+#         # Write updated Residents sheet
+#         conn.update(
+#             worksheet="Masjid Residents",
+#             data=residents,
+#         )
+
+#         # Refresh cached residents data
+#         get_masjid_residents.clear()
+
+#         return True, f"Paid Upto updated to {month_to}."
+
+#     except Exception as e:
+#         return False, str(e)
+
+
+def update_resident_paid_upto(received_from, house_no, month_to):
+    """
+    Update only the Monthly Contribution Paid Upto cell
+    for the matching resident.
+    """
+
+    try:
+        residents = get_masjid_residents()
+
+        if residents.empty:
+            return False, "Masjid Residents sheet is empty."
+
+        required_columns = [
+            "Name",
+            "H No.",
+            "Monthly Contribution Paid Upto",
+        ]
+
+        missing_columns = [
+            column for column in required_columns if column not in residents.columns
+        ]
+
+        if missing_columns:
+            return (
+                False,
+                f"Missing Residents sheet columns: {', '.join(missing_columns)}",
+            )
+
+        target_name = str(received_from).strip()
+        target_house = str(house_no).strip()
+
+        names = residents["Name"].fillna("").astype(str).str.strip()
+
+        houses = (
+            residents["H No."]
+            .fillna("")
+            .astype(str)
+            .str.replace(r"\.0$", "", regex=True)
+            .str.strip()
+        )
+
+        match = names.eq(target_name) & houses.eq(target_house)
+
+        if not match.any():
+            return (
+                False,
+                f"Resident '{target_name}' (House No. {target_house}) was not found.",
+            )
+
+        # Google Sheets row = DataFrame row + header row
+        row_number = int(match[match].index[0]) + 2
+
+        # Google Sheets column number
+        column_number = residents.columns.get_loc("Monthly Contribution Paid Upto") + 1
+
+        spreadsheet = conn.client._open_spreadsheet()
+        worksheet = spreadsheet.worksheet("Masjid Residents")
+
+        # Update ONLY the required cell
+        worksheet.update_cell(
+            row_number,
+            column_number,
+            month_to,
+        )
+
+        get_masjid_residents.clear()
+
+        return True, f"Paid Upto updated to {month_to}."
+
+    except Exception as e:
+        return False, str(e)
+
+
+# def update_resident_firewood_paid_upto(
+#     received_from,
+#     house_no,
+#     firewood_year,
+# ):
+#     """
+#     Update the Fire Wood Contribution Paid Upto value
+#     in the Masjid Residents sheet.
+#     """
+
+#     try:
+#         residents = conn.read(
+#             worksheet="Masjid Residents",
+#             ttl=0,
+#         )
+
+#         if residents.empty:
+#             return False, "Masjid Residents sheet is empty."
+
+#         # Clean column names
+#         residents.columns = residents.columns.astype(str).str.strip()
+
+#         # Create column if it does not exist
+#         if "Fire Wood Contribution Paid Upto" not in residents.columns:
+#             residents["Fire Wood Contribution Paid Upto"] = ""
+
+#         # Always treat Fire Wood Paid Upto as text
+#         residents["Fire Wood Contribution Paid Upto"] = (
+#             residents["Fire Wood Contribution Paid Upto"]
+#             .fillna("")
+#             .astype(str)
+#             .str.strip()
+#         )
+
+#         # Clean matching fields
+#         residents["Name"] = residents["Name"].fillna("").astype(str).str.strip()
+
+#         residents["H No."] = (
+#             residents["H No."]
+#             .fillna("")
+#             .astype(str)
+#             .str.replace(r"\.0$", "", regex=True)
+#             .str.strip()
+#         )
+
+#         target_name = str(received_from).strip()
+#         target_house = str(house_no).strip()
+
+#         # Match BOTH Name and House No.
+#         match = residents["Name"].eq(target_name) & residents["H No."].eq(target_house)
+
+#         if not match.any():
+#             return (
+#                 False,
+#                 f"Resident '{target_name}' (House No. {target_house}) was not found.",
+#             )
+
+#         # Update Fire Wood Paid Upto
+#         residents.loc[match, "Fire Wood Contribution Paid Upto"] = firewood_year
+
+#         # Keep column near Monthly Contribution Paid Upto
+#         columns = list(residents.columns)
+
+#         if "Fire Wood Contribution Paid Upto" in columns:
+#             columns.remove("Fire Wood Contribution Paid Upto")
+
+#         if "Monthly Contribution Paid Upto" in columns:
+#             monthly_index = columns.index("Monthly Contribution Paid Upto")
+#             columns.insert(
+#                 monthly_index + 1,
+#                 "Fire Wood Contribution Paid Upto",
+#             )
+
+#         else:
+#             columns.append("Fire Wood Contribution Paid Upto")
+
+#         residents = residents[columns]
+
+#         # Write updated Residents sheet
+#         conn.update(
+#             worksheet="Masjid Residents",
+#             data=residents,
+#         )
+
+#         # Refresh cache
+#         get_masjid_residents.clear()
+
+#         return (
+#             True,
+#             f"Fire Wood Contribution Paid Upto updated to {firewood_year}.",
+#         )
+
+#     except Exception as e:
+#         return False, str(e)
+
+
+def update_resident_firewood_paid_upto(
+    received_from,
+    house_no,
+    firewood_year,
+):
+    """
+    Update only the Fire Wood Contribution Paid Upto cell
+    for the matching resident.
+    """
+
+    try:
+        residents = get_masjid_residents()
+
+        if residents.empty:
+            return False, "Masjid Residents sheet is empty."
+
+        required_columns = [
+            "Name",
+            "H No.",
+            "Fire Wood Contribution Paid Upto",
+        ]
+
+        missing_columns = [
+            column for column in required_columns if column not in residents.columns
+        ]
+
+        if missing_columns:
+            return (
+                False,
+                f"Missing Residents sheet columns: {', '.join(missing_columns)}",
+            )
+
+        target_name = str(received_from).strip()
+        target_house = str(house_no).strip()
+
+        names = residents["Name"].fillna("").astype(str).str.strip()
+
+        houses = (
+            residents["H No."]
+            .fillna("")
+            .astype(str)
+            .str.replace(r"\.0$", "", regex=True)
+            .str.strip()
+        )
+
+        match = names.eq(target_name) & houses.eq(target_house)
+
+        if not match.any():
+            return (
+                False,
+                f"Resident '{target_name}' (House No. {target_house}) was not found.",
+            )
+
+        row_number = int(match[match].index[0]) + 2
+
+        column_number = (
+            residents.columns.get_loc("Fire Wood Contribution Paid Upto") + 1
+        )
+
+        spreadsheet = conn.client._open_spreadsheet()
+        worksheet = spreadsheet.worksheet("Masjid Residents")
+
+        # Update ONLY the required cell
+        worksheet.update_cell(
+            row_number,
+            column_number,
+            firewood_year,
+        )
+
+        get_masjid_residents.clear()
+
+        return (
+            True,
+            f"Fire Wood Contribution Paid Upto updated to {firewood_year}.",
+        )
+
+    except Exception as e:
+        return False, str(e)
 
 
 def get_next_receipt_serial():
@@ -340,6 +1223,8 @@ def generate_receipt_pdf(
     month_to,
     payment_mode,
     date_value,
+    firewood_year,
+    address="",
 ):
     buffer = BytesIO()
 
@@ -427,15 +1312,57 @@ def generate_receipt_pdf(
 
     receipt_no = receipt_display_no(receipt_serial)
 
-    story.append(Paragraph(escape(MASJID_NAME), title_style))
-    story.append(Paragraph(escape(MASJID_ADDRESS), subtitle_style))
+    # Masjid Logo
+    logo = RLImage(
+        "masjid_logo.jpeg",
+        width=30 * mm,
+        height=18 * mm,
+    )
 
+    logo.hAlign = "CENTER"
+
+    story.append(logo)
+    story.append(Spacer(1, 2))
+
+    # Masjid Name
+    story.append(
+        Paragraph(
+            escape(MASJID_NAME),
+            title_style,
+        )
+    )
+
+    # Masjid Address
+    story.append(
+        Paragraph(
+            escape(MASJID_ADDRESS),
+            subtitle_style,
+        )
+    )
+
+    # Bank Details
     story.append(
         Paragraph(
             escape(f"{MASJID_BANK} | A/C No. {MASJID_ACCOUNT} | IFSC: {MASJID_IFSC}"),
             small_center,
         )
     )
+
+    # # --------------------------------------------------------
+    # # HEADER
+    # # --------------------------------------------------------
+
+    # receipt_no = receipt_display_no(receipt_serial)
+
+    # story.append(Paragraph(escape(MASJID_NAME), title_style))
+    # story.append(Paragraph(escape(MASJID_ADDRESS), subtitle_style))
+
+    # story.append(
+    #     Paragraph(
+    #         escape(f"{MASJID_BANK} | A/C No. {MASJID_ACCOUNT} | IFSC: {MASJID_IFSC}"),
+    #         small_center,
+    #     )
+    # )
 
     story.append(Spacer(1, 3))
 
@@ -462,9 +1389,15 @@ def generate_receipt_pdf(
         ],
         [
             Paragraph("<b>Received From</b>", normal),
-            Paragraph(received_from, normal),
-            Paragraph("<b>House No.</b>", normal),
-            Paragraph(house_no or "—", normal),
+            Paragraph(f"Mr. {received_from}", normal),
+            Paragraph(
+                "<b>Address</b>" if address else "<b>House No.</b>",
+                normal,
+            ),
+            Paragraph(
+                address if address else (house_no or "—"),
+                normal,
+            ),
         ],
         [
             Paragraph("<b>Phone Number</b>", normal),
@@ -480,56 +1413,119 @@ def generate_receipt_pdf(
         ],
         [
             Paragraph("<b>On Account of</b>", normal),
-            Paragraph(purpose, normal),
-            "",
-            "",
-        ],
-        [
-            Paragraph("<b>Month - From</b>", normal),
-            Paragraph(month_from, normal),
-            Paragraph("<b>To</b>", normal),
-            Paragraph(month_to, normal),
-        ],
-        [
-            Paragraph("<b>Payment Mode</b>", normal),
-            Paragraph(payment_mode, normal),
-            "",
-            "",
-        ],
-        [
-            Paragraph("<b>Amount in Words</b>", normal),
-            Paragraph(number_to_words(amount), normal),
+            Paragraph(purpose, label),
             "",
             "",
         ],
     ]
+
+    # ------------------------------------------------------------
+    # MONTH FROM / TO
+    # ONLY FOR MONTHLY CONTRIBUTION
+    # ------------------------------------------------------------
+
+    if purpose == "Monthly Contribution":
+        content.append([
+            Paragraph("<b>Month - From</b>", normal),
+            Paragraph(month_from, normal),
+            Paragraph("<b>To</b>", normal),
+            Paragraph(month_to, normal),
+        ])
+
+    # ------------------------------------------------------------
+    # FIRE WOOD FINANCIAL YEAR
+    # ONLY FOR FIRE WOOD CONTRIBUTION
+    # ------------------------------------------------------------
+
+    if purpose == "Fire Wood Contribution":
+        content.append([
+            Paragraph("<b>Financial Year</b>", normal),
+            Paragraph(firewood_year, normal),
+            "",
+            "",
+        ])
+
+    # ------------------------------------------------------------
+    # PAYMENT MODE
+    # ------------------------------------------------------------
+
+    content.append([
+        Paragraph("<b>Payment Mode</b>", normal),
+        Paragraph(payment_mode, normal),
+        "",
+        "",
+    ])
+
+    # ------------------------------------------------------------
+    # AMOUNT IN WORDS
+    # ------------------------------------------------------------
+
+    content.append([
+        Paragraph("<b>Amount in Words</b>", normal),
+        Paragraph(number_to_words(amount), normal),
+        "",
+        "",
+    ])
+    content_table = Table(
+        content,
+        colWidths=[35 * mm, 78 * mm, 25 * mm, 45 * mm],
+    )
+
+    table_style_commands = [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.45, colors.black),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        # Phone
+        ("SPAN", (1, 2), (3, 2)),
+        # Amount
+        ("SPAN", (1, 3), (3, 3)),
+        # Purpose
+        ("SPAN", (1, 4), (3, 4)),
+    ]
+
+    # ------------------------------------------------------------
+    # PAYMENT MODE + AMOUNT IN WORDS
+    # ------------------------------------------------------------
+
+    if purpose == "Monthly Contribution":
+        # Month row = 5
+        # Payment Mode row = 6
+        # Amount in Words row = 7
+
+        table_style_commands.extend([
+            ("SPAN", (1, 6), (3, 6)),
+            ("SPAN", (1, 7), (3, 7)),
+        ])
+
+    elif purpose == "Fire Wood Contribution":
+        # Financial Year row = 5
+        # Payment Mode row = 6
+        # Amount in Words row = 7
+
+        table_style_commands.extend([
+            ("SPAN", (1, 5), (3, 5)),
+            ("SPAN", (1, 6), (3, 6)),
+            ("SPAN", (1, 7), (3, 7)),
+        ])
+
+    else:
+        # Payment Mode row = 5
+        # Amount in Words row = 6
+
+        table_style_commands.extend([
+            ("SPAN", (1, 5), (3, 5)),
+            ("SPAN", (1, 6), (3, 6)),
+        ])
 
     content_table = Table(
         content,
         colWidths=[35 * mm, 78 * mm, 25 * mm, 45 * mm],
     )
 
-    content_table.setStyle(
-        TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.45, colors.black),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            # The following rows use the full width:
-            # Phone
-            ("SPAN", (1, 2), (3, 2)),
-            # Amount
-            ("SPAN", (1, 3), (3, 3)),
-            # Purpose
-            ("SPAN", (1, 4), (3, 4)),
-            # Payment Mode
-            ("SPAN", (1, 6), (3, 6)),
-            # Amount in Words
-            ("SPAN", (1, 7), (3, 7)),
-        ])
-    )
+    content_table.setStyle(TableStyle(table_style_commands))
 
     story.append(content_table)
     story.append(Spacer(1, 3))
@@ -612,6 +1608,7 @@ def save_receipt(
     transaction_id,
     received_from,
     house_no,
+    address,
     amount,
     purpose,
     month_from,
@@ -619,67 +1616,731 @@ def save_receipt(
     payment_mode,
     phone,
     date_value,
+    firewood_year,
 ):
-    receipt_no = receipt_display_no(receipt_serial)
+    try:
+        receipt_no = receipt_display_no(receipt_serial)
 
-    existing = conn.read(worksheet="Receipts", ttl=0)
+        # Use cached data instead of reading Google Sheets again
+        existing = get_receipts()
 
-    if not existing.empty:
-        if "Transaction ID" in existing.columns:
-            if existing["Transaction ID"].astype(str).eq(str(transaction_id)).any():
-                return False, "This receipt has already been saved."
+        # Prevent duplicate Transaction ID
+        if not existing.empty:
+            if "Transaction ID" in existing.columns:
+                if existing["Transaction ID"].astype(str).eq(str(transaction_id)).any():
+                    return False, "This receipt has already been saved."
 
-        if "Receipt No" in existing.columns:
-            if existing["Receipt No"].astype(str).eq(receipt_no).any():
-                return False, f"Receipt No. {receipt_no} already exists."
+            # Prevent duplicate Receipt No.
+            if "Receipt No" in existing.columns:
+                if existing["Receipt No"].astype(str).eq(receipt_no).any():
+                    return False, f"Receipt No. {receipt_no} already exists."
 
-    new_row = pd.DataFrame([
-        {
-            "Receipt No": receipt_no,
-            "Transaction ID": transaction_id,
-            "Date": date_value,
-            "Received From": received_from,
-            "House No": house_no,
-            "Amount": float(amount),
-            "Purpose": purpose,
-            "Month From": month_from,
-            "Month To": month_to,
-            "Payment Mode": payment_mode,
-            "Phone": phone,
-            "Status": "Saved",
-        }
-    ])
+        # Prepare the new row
+        values = [
+            receipt_no,
+            transaction_id,
+            date_value,
+            received_from,
+            house_no,
+            address,
+            float(amount),
+            purpose,
+            month_from,
+            month_to,
+            payment_mode,
+            phone,
+            month_to if purpose == "Monthly Contribution" else "",
+            firewood_year if purpose == "Fire Wood Contribution" else "",
+            "Saved",
+        ]
 
-    if existing.empty:
-        final_data = new_row
-    else:
-        final_data = pd.concat([existing, new_row], ignore_index=True)
+        # Open the Receipts worksheet
+        spreadsheet = conn.client._open_spreadsheet()
+        worksheet = spreadsheet.worksheet("Receipts")
 
-    columns = [
-        "Receipt No",
-        "Transaction ID",
-        "Date",
-        "Received From",
-        "House No",
-        "Amount",
-        "Purpose",
-        "Month From",
-        "Month To",
-        "Payment Mode",
-        "Phone",
-        "Status",
+        # Append ONLY the new receipt
+        worksheet.append_row(
+            values,
+            value_input_option="USER_ENTERED",
+        )
+
+        # Clear cache so next read gets latest data
+        get_receipts.clear()
+
+        return True, "Receipt saved successfully."
+
+    except Exception as e:
+        return False, str(e)
+
+
+# ============================================================
+# MASJID EXPENSES
+# ============================================================
+
+EXPENSES_SHEET = "Masjid Expenses"
+
+
+@st.cache_data(ttl=120)
+def get_expenses():
+    """
+    Read all expenses from the Masjid Expenses worksheet.
+    """
+
+    try:
+        df = conn.read(
+            worksheet=EXPENSES_SHEET,
+            ttl=120,
+        )
+        mark_cache_synced("Masjid Expenses")
+
+        if df.empty:
+            return pd.DataFrame()
+
+        df.columns = df.columns.astype(str).str.strip()
+
+        # Clean text columns
+        for col in [
+            "Date",
+            "Expense Type",
+            "Particular",
+            "Payment Mode",
+            "Remarks",
+        ]:
+            if col in df.columns:
+                df[col] = df[col].fillna("").astype(str).str.strip()
+
+        # Clean amount
+        if "Amount" in df.columns:
+            df["Amount"] = pd.to_numeric(
+                df["Amount"],
+                errors="coerce",
+            ).fillna(0.0)
+
+        if "Date" in df.columns:
+            df["_Parsed Date"] = pd.to_datetime(
+                df["Date"],
+                dayfirst=True,
+                errors="coerce",
+            )
+
+        return df
+
+    except Exception:
+        return pd.DataFrame()
+
+
+def save_expense(
+    date_value,
+    expense_type,
+    particular,
+    amount,
+    payment_mode,
+    remarks,
+):
+    try:
+        # Use cached data for validation / existing records
+        existing = get_expenses()
+
+        values = [
+            date_value,
+            expense_type,
+            particular,
+            float(amount),
+            payment_mode,
+            remarks,
+        ]
+
+        # Open worksheet
+        spreadsheet = conn.client._open_spreadsheet()
+        worksheet = spreadsheet.worksheet(EXPENSES_SHEET)
+
+        # Append only this expense
+        worksheet.append_row(
+            values,
+            value_input_option="USER_ENTERED",
+        )
+
+        # Refresh cache
+        get_expenses.clear()
+
+        return True, "Expense saved successfully."
+
+    except Exception as e:
+        return False, str(e)
+
+
+# ============================================================
+# MONTHLY ACCOUNTS
+# ============================================================
+
+MONTHLY_ACCOUNTS_SHEET = "Monthly Accounts"
+
+
+MONTHLY_ACCOUNT_COLUMNS = [
+    "Month",
+    "Last Month Cash",
+    "Monthly Contribution",
+    "Friday Collections",
+    "Donation",
+    "Recovery from Imam Sahib",
+    "Fire Wood Contribution",
+    "Total Income",
+    "Salary Paid to Khadim",
+    "Salary Paid to Imam Sahib",
+    "Masjid Electricity Paid",
+    "Darasgah Electricity Paid",
+    "Other Expenses",
+    "Total Expenses",
+    "Amount Credited to Bank",
+    "Amount Debited from Bank",
+    "Bank Balance",
+    "Cash in Hand",
+    "Closing Balance",
+]
+
+
+@st.cache_data(ttl=120)
+def get_monthly_accounts():
+
+    try:
+        df = conn.read(
+            worksheet=MONTHLY_ACCOUNTS_SHEET,
+            ttl=120,
+        )
+        mark_cache_synced("Monthly Accounts")
+
+        if df.empty:
+            return pd.DataFrame()
+
+        df.columns = df.columns.astype(str).str.strip()
+
+        return df
+
+    except Exception:
+        return pd.DataFrame()
+
+
+def get_previous_month_balances(selected_period):
+    """
+    Get the previous month's closing Cash and Bank balance.
+    """
+
+    accounts_df = get_monthly_accounts()
+
+    if accounts_df.empty:
+        return 0.0, 0.0
+
+    if "Month" not in accounts_df.columns:
+        return 0.0, 0.0
+
+    parsed_months = pd.to_datetime(
+        accounts_df["Month"],
+        format="%B %Y",
+        errors="coerce",
+    ).dt.to_period("M")
+
+    previous_period = selected_period - 1
+
+    previous = accounts_df.loc[parsed_months.eq(previous_period)]
+
+    if previous.empty:
+        return 0.0, 0.0
+
+    previous_row = previous.iloc[-1]
+
+    previous_cash = pd.to_numeric(
+        previous_row.get("Cash in Hand", 0),
+        errors="coerce",
+    )
+
+    previous_bank = pd.to_numeric(
+        previous_row.get("Bank Balance", 0),
+        errors="coerce",
+    )
+
+    if pd.isna(previous_cash):
+        previous_cash = 0.0
+
+    if pd.isna(previous_bank):
+        previous_bank = 0.0
+
+    return float(previous_cash), float(previous_bank)
+
+
+# def save_monthly_account(month_data):
+
+#     try:
+#         existing = conn.read(
+#             worksheet=MONTHLY_ACCOUNTS_SHEET,
+#             ttl=0,
+#         )
+
+#         new_row = pd.DataFrame([month_data])
+
+#         if existing.empty:
+#             final_data = new_row
+
+#         else:
+#             existing.columns = existing.columns.astype(str).str.strip()
+
+#             # Remove existing record for the same month
+#             if "Month" in existing.columns:
+#                 existing = existing[
+#                     existing["Month"].astype(str).str.strip()
+#                     != str(month_data["Month"]).strip()
+#                 ]
+
+#             final_data = pd.concat(
+#                 [existing, new_row],
+#                 ignore_index=True,
+#             )
+
+#         # Make sure every required column exists
+#         for column in MONTHLY_ACCOUNT_COLUMNS:
+#             if column not in final_data.columns:
+#                 final_data[column] = 0.0
+
+#         # Correct column order
+#         final_data = final_data[MONTHLY_ACCOUNT_COLUMNS]
+
+#         conn.update(
+#             worksheet=MONTHLY_ACCOUNTS_SHEET,
+#             data=final_data,
+#         )
+
+#         get_monthly_accounts.clear()
+
+#         return True, "Monthly account saved successfully."
+
+#     except Exception as e:
+#         return False, str(e)
+
+
+def save_monthly_account(month_data):
+    """
+    Save or update one month's final accounts.
+
+    Existing month:
+        Update only that row.
+
+    New month:
+        Append only the new row.
+    """
+
+    try:
+        spreadsheet = conn.client._open_spreadsheet()
+        worksheet = spreadsheet.worksheet(MONTHLY_ACCOUNTS_SHEET)
+
+        month_value = str(month_data.get("Month", "")).strip()
+
+        if not month_value:
+            return False, "Month is required."
+
+        # Build row in the exact Monthly Accounts order
+        values = [month_data.get(column, 0.0) for column in MONTHLY_ACCOUNT_COLUMNS]
+
+        # Find existing month in Column A
+        existing_cell = worksheet.find(
+            month_value,
+            in_column=1,
+        )
+
+        if existing_cell:
+            row_number = existing_cell.row
+
+            worksheet.update(
+                values=[values],
+                range_name=(f"A{row_number}:S{row_number}"),
+            )
+
+            message = f"{month_value} monthly account updated successfully."
+
+        else:
+            worksheet.append_row(
+                values,
+                value_input_option="USER_ENTERED",
+            )
+
+            message = f"{month_value} monthly account saved successfully."
+
+        get_monthly_accounts.clear()
+
+        return True, message
+
+    except Exception as e:
+        return False, str(e)
+
+
+@st.cache_data(ttl=120)
+def get_monthly_expenses(month_year):
+    """
+    Return expenses for the selected month.
+    """
+
+    expenses = get_expenses()
+
+    if expenses.empty:
+        return pd.DataFrame()
+
+    if "_Parsed Date" not in expenses.columns:
+        return pd.DataFrame()
+
+    selected_period = pd.Period(
+        month_year,
+        freq="M",
+    )
+
+    mask = expenses["_Parsed Date"].dt.to_period("M").eq(selected_period)
+
+    return expenses.loc[mask]
+
+
+# @st.cache_data(ttl=120)
+# def get_monthly_expenses(month_year):
+#     """
+#     Return expenses for the selected month.
+#     """
+
+#     expenses = get_expenses()
+
+#     if expenses.empty:
+#         return pd.DataFrame()
+
+#     if "Date" not in expenses.columns:
+#         return pd.DataFrame()
+
+#     df = expenses.copy()
+
+#     df["Parsed Date"] = pd.to_datetime(
+#         df["Date"],
+#         dayfirst=True,
+#         errors="coerce",
+#     )
+
+#     selected_period = pd.Period(
+#         month_year,
+#         freq="M",
+#     )
+
+#     return df[df["Parsed Date"].dt.to_period("M") == selected_period].copy()
+
+
+# @st.cache_data(ttl=120)
+# def calculate_monthly_expenses(month_year):
+#     """
+#     Calculate expense totals for the selected month.
+#     """
+
+#     df = get_monthly_expenses(month_year)
+
+#     expense_totals = {
+#         "Salary Paid to Khadim": 0.0,
+#         "Salary Paid to Imam Sahib": 0.0,
+#         "Masjid Electricity Paid": 0.0,
+#         "Darasgah Electricity Paid": 0.0,
+#         "Other Expenses": 0.0,
+#     }
+
+#     if df.empty:
+#         return expense_totals
+
+#     df["Amount"] = pd.to_numeric(
+#         df["Amount"],
+#         errors="coerce",
+#     ).fillna(0.0)
+
+#     for _, row in df.iterrows():
+#         expense_type = str(row.get("Expense Type", "")).strip()
+
+#         particular = str(row.get("Particular", "")).strip()
+
+#         amount = float(row.get("Amount", 0))
+
+#         # Salary / Salary Paid to Khadim
+#         if particular == "Salary Paid to Imam Sahib":
+#             expense_totals["Salary Paid to Imam Sahib"] += amount
+
+#         elif particular == "Salary Paid to Khadim":
+#             expense_totals["Salary Paid to Khadim"] += amount
+
+#         # Masjid electricity
+#         elif particular == "Masjid Electricity Paid" or (
+#             expense_type == "Electricity" and "Masjid" in particular
+#         ):
+#             expense_totals["Masjid Electricity Paid"] += amount
+
+#         # Darasgah electricity
+#         elif particular == "Darasgah Electricity Paid" or (
+#             expense_type == "Electricity" and "Darasgah" in particular
+#         ):
+#             expense_totals["Darasgah Electricity Paid"] += amount
+
+#         # Everything else
+#         else:
+#             expense_totals["Other Expenses"] += amount
+
+#     return expense_totals
+
+
+@st.cache_data(ttl=120)
+def calculate_monthly_expenses(month_year):
+    """
+    Calculate expense totals for the selected month.
+    Uses vectorized classification + groupby.
+    """
+
+    df = get_monthly_expenses(month_year)
+
+    expense_categories = [
+        "Salary Paid to Khadim",
+        "Salary Paid to Imam Sahib",
+        "Masjid Electricity Paid",
+        "Darasgah Electricity Paid",
+        "Other Expenses",
     ]
 
-    for col in columns:
-        if col not in final_data.columns:
-            final_data[col] = ""
+    expense_totals = {category: 0.0 for category in expense_categories}
 
-    final_data = final_data[columns]
+    if df.empty:
+        return expense_totals
 
-    conn.update(worksheet="Receipts", data=final_data)
-    get_receipts.clear()
+    if "Amount" not in df.columns:
+        return expense_totals
 
-    return True, "Receipt saved successfully."
+    amounts = pd.to_numeric(
+        df["Amount"],
+        errors="coerce",
+    ).fillna(0.0)
+
+    particular = (
+        df
+        .get(
+            "Particular",
+            pd.Series("", index=df.index),
+        )
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    expense_type = (
+        df
+        .get(
+            "Expense Type",
+            pd.Series("", index=df.index),
+        )
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    category = pd.Series(
+        "Other Expenses",
+        index=df.index,
+    )
+
+    category.loc[particular.eq("Salary Paid to Imam Sahib")] = (
+        "Salary Paid to Imam Sahib"
+    )
+
+    category.loc[particular.eq("Salary Paid to Khadim")] = "Salary Paid to Khadim"
+
+    category.loc[
+        particular.eq("Masjid Electricity Paid")
+        | (
+            expense_type.eq("Electricity")
+            & particular.str.contains(
+                "Masjid",
+                case=False,
+                na=False,
+            )
+        )
+    ] = "Masjid Electricity Paid"
+
+    category.loc[
+        particular.eq("Darasgah Electricity Paid")
+        | (
+            expense_type.eq("Electricity")
+            & particular.str.contains(
+                "Darasgah",
+                case=False,
+                na=False,
+            )
+        )
+    ] = "Darasgah Electricity Paid"
+
+    grouped = (
+        pd
+        .DataFrame({
+            "Category": category,
+            "Amount": amounts,
+        })
+        .groupby("Category")["Amount"]
+        .sum()
+    )
+
+    for category_name in expense_categories:
+        expense_totals[category_name] = float(grouped.get(category_name, 0.0))
+
+    return expense_totals
+
+
+# ============================================================
+# MONTHLY ACCOUNTS
+# ============================================================
+
+
+@st.cache_data(ttl=120)
+def get_monthly_receipts(month_year):
+    """
+    Get all receipts whose Receipt Date falls within
+    the selected month and year.
+    """
+
+    receipts = get_receipts()
+
+    if receipts.empty:
+        return pd.DataFrame()
+
+    if "_Parsed Date" not in receipts.columns:
+        return pd.DataFrame()
+
+    selected_period = pd.Period(
+        month_year,
+        freq="M",
+    )
+
+    mask = receipts["_Parsed Date"].dt.to_period("M").eq(selected_period)
+
+    return receipts.loc[mask]
+
+
+# @st.cache_data(ttl=120)
+# def get_monthly_receipts(month_year):
+#     """
+#     Get all receipts whose Receipt Date falls within the
+#     selected month and year.
+#     """
+
+#     receipts = get_receipts()
+
+#     if receipts.empty:
+#         return pd.DataFrame()
+
+#     if "Date" not in receipts.columns:
+#         return pd.DataFrame()
+
+#     df = receipts.copy()
+
+#     # Convert receipt Date to datetime
+#     df["Parsed Date"] = pd.to_datetime(
+#         df["Date"],
+#         dayfirst=True,
+#         errors="coerce",
+#     )
+
+#     selected_period = pd.Period(month_year, freq="M")
+
+#     return df[df["Parsed Date"].dt.to_period("M") == selected_period].copy()
+
+
+# @st.cache_data(ttl=120)
+# def calculate_monthly_income(month_year):
+#     """
+#     Calculate item-wise income for a selected month
+#     using the Receipt Date column.
+#     """
+
+#     df = get_monthly_receipts(month_year)
+
+#     income = {
+#         "Miscellaneous": 0.0,
+#         "Monthly Contribution": 0.0,
+#         "Friday Collections": 0.0,
+#         "Donation": 0.0,
+#         "Online Contribution": 0.0,
+#         "Recovery from Imam Sahib": 0.0,
+#         "Fire Wood Contribution": 0.0,
+#     }
+
+#     if df.empty:
+#         return income
+
+#     df["Amount"] = pd.to_numeric(
+#         df["Amount"],
+#         errors="coerce",
+#     ).fillna(0.0)
+
+#     for _, row in df.iterrows():
+#         purpose = str(row.get("Purpose", "")).strip()
+
+#         amount = float(row.get("Amount", 0))
+
+#         # Map existing receipt purposes
+#         if purpose == "Monthly Contribution":
+#             income["Monthly Contribution"] += amount
+
+#         elif purpose == "Donation":
+#             income["Donation"] += amount
+
+#         elif purpose == "Fire Wood Contribution":
+#             income["Fire Wood Contribution"] += amount
+
+#         elif purpose == "Friday Collections":
+#             income["Friday Collections"] += amount
+
+#         elif purpose == "Recovery from Imam Sahib":
+#             income["Recovery from Imam Sahib"] += amount
+
+#     return income
+
+
+@st.cache_data(ttl=120)
+def calculate_monthly_income(month_year):
+    """
+    Calculate item-wise income for a selected month
+    using the Receipt Date column.
+    """
+
+    df = get_monthly_receipts(month_year)
+
+    income_categories = [
+        "Monthly Contribution",
+        "Friday Collections",
+        "Donation",
+        "Recovery from Imam Sahib",
+        "Fire Wood Contribution",
+    ]
+
+    income = {category: 0.0 for category in income_categories}
+
+    if df.empty:
+        return income
+
+    if "Purpose" not in df.columns or "Amount" not in df.columns:
+        return income
+
+    amounts = pd.to_numeric(
+        df["Amount"],
+        errors="coerce",
+    ).fillna(0.0)
+
+    purposes = df["Purpose"].fillna("").astype(str).str.strip()
+
+    grouped = (
+        pd
+        .DataFrame({
+            "Purpose": purposes,
+            "Amount": amounts,
+        })
+        .groupby("Purpose")["Amount"]
+        .sum()
+    )
+
+    for category in income_categories:
+        income[category] = float(grouped.get(category, 0.0))
+
+    return income
 
 
 # ============================================================
@@ -723,6 +2384,16 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
+
+    st.header("🧾 Receipt")
+    st.info(f"Next Receipt: **{receipt_display_no(st.session_state.receipt_serial)}**")
+
+    st.caption(
+        "The digital system starts from M-515 unless existing Google Sheet "
+        "records require a higher number."
+    )
+
+    st.divider()
     st.header("🕌 Masjid Details")
 
     st.text_input("Masjid Name", value=MASJID_NAME, disabled=True)
@@ -733,13 +2404,19 @@ with st.sidebar:
 
     st.divider()
 
-    st.header("🧾 Receipt")
-    st.info(f"Next Receipt: **{receipt_display_no(st.session_state.receipt_serial)}**")
+    st.caption(f"🟢 Last synced: {get_last_synced()}")
 
     st.caption(
-        "The digital system starts from M-1001 unless existing Google Sheet "
-        "records require a higher number."
+        "Cached Google Sheets data refreshes automatically when the cache expires."
     )
+
+
+def reset_new_receipt():
+    st.session_state.receipt_serial = get_next_receipt_serial()
+    st.session_state.transaction_id = str(uuid.uuid4())
+    st.session_state.receipt_saved = False
+    st.session_state.pdf_bytes = None
+    st.session_state.generated_receipt_no = None
 
 
 # ============================================================
@@ -747,43 +2424,177 @@ with st.sidebar:
 # ============================================================
 
 st.header("Create Masjid Receipt")
-
+residents_df = get_masjid_residents()
 col1, col2 = st.columns(2)
 
 with col1:
-    received_from = st.text_input(
-        "Received From *",
-        placeholder="e.g. Mohammad Amaan",
-    )
+    if not residents_df.empty:
+        # ----------------------------------------------------
+        # PREPARE OPTIONS
+        # ----------------------------------------------------
 
-    house_no = st.text_input(
-        "House No.",
-        placeholder="e.g. 42",
-    )
+        resident_names = residents_df["Name"].dropna().astype(str).str.strip()
 
-    amount = st.number_input(
-        "Amount (₹) *",
-        min_value=0.0,
-        value=0.0,
-        step=100.0,
-    )
+        resident_names = sorted([name for name in resident_names.unique() if name])
 
-    phone = st.text_input(
-        "Phone Number",
-        max_chars=10,
-        placeholder="10-digit number",
-    )
+        house_numbers = residents_df["H No."].dropna().astype(str).str.strip()
+
+        house_numbers = sorted(
+            [house for house in house_numbers.unique() if house],
+            key=lambda x: (int(x) if x.isdigit() else 999999, x),
+        )
+
+        # ----------------------------------------------------
+        # SESSION STATE
+        # ----------------------------------------------------
+
+        if "selected_resident_name" not in st.session_state:
+            st.session_state.selected_resident_name = "-- Select Resident --"
+
+        if "selected_resident_house" not in st.session_state:
+            st.session_state.selected_resident_house = "-- Select House No. --"
+
+        if "resident_phone" not in st.session_state:
+            st.session_state.resident_phone = ""
+
+        if "resident_paid_upto" not in st.session_state:
+            st.session_state.resident_paid_upto = ""
+
+        if "resident_firewood_paid_upto" not in st.session_state:
+            st.session_state.resident_firewood_paid_upto = ""
+
+        # ----------------------------------------------------
+        # RECEIVED WITH THANKS FROM
+        # ----------------------------------------------------
+
+        received_from = st.selectbox(
+            "Received with Thanks From *",
+            ["-- Select Resident --"] + resident_names + ["➕ Non Resident"],
+            key="selected_resident_name",
+            on_change=select_resident_by_name,
+        )
+
+        is_non_resident = received_from == "➕ Non Resident"
+
+        # ----------------------------------------------------
+        # RESIDENT / NON-RESIDENT DETAILS
+        # ----------------------------------------------------
+
+        if received_from == "➕ Non Resident":
+            # ==================================================
+            # NON RESIDENT
+            # ==================================================
+
+            non_resident_name = st.text_input(
+                "Donor Name *",
+                placeholder="Enter donor name",
+                key="non_resident_name",
+            )
+
+            phone = st.text_input(
+                "Phone Number",
+                placeholder="Enter phone number",
+                key="non_resident_phone",
+            )
+
+            address = st.text_input(
+                "Address *",
+                placeholder="Enter donor address",
+                key="non_resident_address",
+            )
+
+            # No House No. for non-residents
+            house_no = ""
+
+        else:
+            # ==================================================
+            # NORMAL RESIDENT
+            # ==================================================
+
+            house_no = st.selectbox(
+                "House No.",
+                ["-- Select House No. --"] + house_numbers,
+                key="selected_resident_house",
+                on_change=select_resident_by_house,
+            )
+
+            phone = st.text_input(
+                "Phone Number",
+                key="resident_phone",
+                disabled=True,
+            )
+
+            address = ""
+
+        # ----------------------------------------------------
+        # AMOUNT
+        # ----------------------------------------------------
+
+        amount = st.number_input(
+            "Amount (₹) *",
+            min_value=0.0,
+            value=0.0,
+            step=100.0,
+        )
+
+        # ============================================================
+        # NEW RECEIPT
+        # ============================================================
+
+        st.button(
+            "🔄 Start New Receipt",
+            on_click=reset_new_receipt,
+            width="stretch",
+        )
+
+        # ----------------------------------------------------
+        # CONVERT PLACEHOLDERS
+        # ----------------------------------------------------
+
+        if received_from == "-- Select Resident --":
+            received_from = ""
+
+        if house_no == "-- Select House No. --":
+            house_no = ""
+
+        # For Non Residents use the manually entered donor name
+        if st.session_state.selected_resident_name == "➕ Non Resident":
+            received_from = non_resident_name.strip()
+
+    else:
+        st.error("Masjid Residents sheet could not be loaded.")
+
+        received_from = ""
+        house_no = ""
+        phone = ""
 
 with col2:
-    purpose = st.selectbox(
-        "On Account of *",
-        [
-            "Monthly Contribution",
-            "Donation",
-            "Fire Wood",
-            "Other",
-        ],
-    )
+    # ==========================================================
+    # PURPOSE OPTIONS
+    # Residents -> All purposes
+    # Non Residents -> Donation only
+    # ==========================================================
+
+    if is_non_resident:
+        purpose = st.selectbox(
+            "On Account of *",
+            ["Donation"],
+            key="purpose_non_resident",
+        )
+
+    else:
+        purpose = st.selectbox(
+            "On Account of *",
+            [
+                "Monthly Contribution",
+                "Donation",
+                "Friday Collections",
+                "Recovery from Imam Sahib",
+                "Fire Wood Contribution",
+                "Other",
+            ],
+            key="purpose_resident",
+        )
 
     if purpose == "Other":
         purpose_other = st.text_input("Specify Purpose")
@@ -791,95 +2602,154 @@ with col2:
     else:
         selected_purpose = purpose
 
+    # ----------------------------------------------------
+    # MONTHLY CONTRIBUTION PAID UPTO - AUTOMATIC
+    # ----------------------------------------------------
+
+    if not is_non_resident and purpose == "Monthly Contribution":
+        paid_upto = st.text_input(
+            "Monthly Contribution Paid Upto",
+            key="resident_paid_upto",
+            disabled=True,
+        )
+    else:
+        paid_upto = ""
+
+    # ----------------------------------------------------
+    # FIRE WOOD CONTRIBUTION PAID UPTO - AUTOMATIC
+    # ----------------------------------------------------
+
+    if not is_non_resident and purpose == "Fire Wood Contribution":
+        firewood_paid_upto = st.session_state.get("resident_firewood_paid_upto", "")
+
+        st.text_input(
+            "Fire Wood Contribution Paid Upto",
+            value=firewood_paid_upto,
+            disabled=True,
+            key="firewood_paid_upto_display",
+        )
+
+    else:
+        firewood_paid_upto = ""
+
     # ============================================================
     # MONTH-WISE CONTRIBUTION PERIOD
+    # ONLY FOR MONTHLY CONTRIBUTION
     # ============================================================
 
-    month_names = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    ]
+    month_from = ""
+    month_to = ""
 
-    current_year = datetime.now().year
-    current_month = datetime.now().month
+    if purpose == "Monthly Contribution":
+        month_names = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ]
 
-    # -------------------------
-    # FROM MONTH
-    # -------------------------
+        current_year = datetime.now().year
+        current_month = datetime.now().month
 
-    st.markdown("**Month - From**")
+        # -------------------------
+        # FROM MONTH
+        # -------------------------
 
-    from_col1, from_col2 = st.columns([2, 1])
+        st.markdown("**Month - From**")
 
-    with from_col1:
-        from_month = st.selectbox(
-            "Month",
-            month_names,
-            index=current_month - 1,
-            key="from_month",
-            label_visibility="collapsed",
+        from_col1, from_col2 = st.columns([2, 1])
+
+        with from_col1:
+            from_month = st.selectbox(
+                "Month",
+                month_names,
+                index=current_month - 1,
+                key="from_month",
+                label_visibility="collapsed",
+            )
+
+        with from_col2:
+            from_year = st.number_input(
+                "Year",
+                min_value=1900,
+                max_value=2100,
+                value=current_year,
+                step=1,
+                key="from_year",
+                label_visibility="collapsed",
+            )
+
+        # -------------------------
+        # TO MONTH
+        # -------------------------
+
+        st.markdown("**To**")
+
+        to_col1, to_col2 = st.columns([2, 1])
+
+        with to_col1:
+            # Default to next month
+            if current_month == 12:
+                default_to_month = 0
+            else:
+                default_to_month = current_month
+
+            to_month = st.selectbox(
+                "Month",
+                month_names,
+                index=default_to_month,
+                key="to_month",
+                label_visibility="collapsed",
+            )
+
+        with to_col2:
+            default_to_year = current_year + 1 if current_month == 12 else current_year
+
+            to_year = st.number_input(
+                "Year",
+                min_value=1900,
+                max_value=2100,
+                value=default_to_year,
+                step=1,
+                key="to_year",
+                label_visibility="collapsed",
+            )
+
+        # Create final values
+        month_from = f"{from_month} {int(from_year)}"
+        month_to = f"{to_month} {int(to_year)}"
+
+    # ============================================================
+    # FIRE WOOD CONTRIBUTION YEAR
+    # ONLY FOR FIRE WOOD CONTRIBUTION
+    # ============================================================
+
+    firewood_year = ""
+
+    if purpose == "Fire Wood Contribution":
+        current_year = datetime.now().year
+
+        # Financial year format: 2026 - 2027
+        current_financial_year = f"{current_year} - {current_year + 1}"
+
+        financial_year_options = [
+            f"{year} - {year + 1}" for year in range(current_year - 5, current_year + 6)
+        ]
+
+        firewood_year = st.selectbox(
+            "Fire Wood Contribution Year",
+            financial_year_options,
+            index=financial_year_options.index(current_financial_year),
+            key="firewood_year",
         )
-
-    with from_col2:
-        from_year = st.number_input(
-            "Year",
-            min_value=1900,
-            max_value=2100,
-            value=current_year,
-            step=1,
-            key="from_year",
-            label_visibility="collapsed",
-        )
-
-    # -------------------------
-    # TO MONTH
-    # -------------------------
-
-    st.markdown("**To**")
-
-    to_col1, to_col2 = st.columns([2, 1])
-
-    with to_col1:
-        # Default to next month
-        if current_month == 12:
-            default_to_month = 0
-        else:
-            default_to_month = current_month
-
-        to_month = st.selectbox(
-            "Month",
-            month_names,
-            index=default_to_month,
-            key="to_month",
-            label_visibility="collapsed",
-        )
-
-    with to_col2:
-        default_to_year = current_year + 1 if current_month == 12 else current_year
-
-        to_year = st.number_input(
-            "Year",
-            min_value=1900,
-            max_value=2100,
-            value=default_to_year,
-            step=1,
-            key="to_year",
-            label_visibility="collapsed",
-        )
-
-    # Create final values for PDF and Google Sheets
-    month_from = f"{from_month} {int(from_year)}"
-    month_to = f"{to_month} {int(to_year)}"
     payment_mode = st.selectbox(
         "Payment Mode",
         ["Cash", "UPI", "Bank Transfer", "Cheque", "Other"],
@@ -923,18 +2793,25 @@ st.write(
 # ============================================================
 # ============================================================
 # MONTH RANGE VALIDATION
+# ONLY FOR MONTHLY CONTRIBUTION
 # ============================================================
-from_date_for_comparison = datetime(
-    int(from_year),
-    month_names.index(from_month) + 1,
-    1,
-)
 
-to_date_for_comparison = datetime(
-    int(to_year),
-    month_names.index(to_month) + 1,
-    1,
-)
+if selected_purpose == "Monthly Contribution":
+    from_date_for_comparison = datetime(
+        int(from_year),
+        month_names.index(from_month) + 1,
+        1,
+    )
+
+    to_date_for_comparison = datetime(
+        int(to_year),
+        month_names.index(to_month) + 1,
+        1,
+    )
+
+else:
+    from_date_for_comparison = datetime.now()
+    to_date_for_comparison = datetime.now()
 
 st.divider()
 st.header("Generate Masjid Receipt")
@@ -949,8 +2826,19 @@ if generate_receipt:
     name_ok, name_error = validate_name(received_from)
     phone_ok, phone_error = validate_phone(phone)
 
-    if not name_ok:
+    is_non_resident = st.session_state.selected_resident_name == "Non Residents"
+
+    if not received_from:
+        if is_non_resident:
+            st.error("❌ Please enter donor name.")
+        else:
+            st.error("❌ Please select a resident.")
+
+    elif not name_ok:
         st.error(f"❌ {name_error}")
+
+    elif is_non_resident and not address.strip():
+        st.error("❌ Please enter donor address.")
 
     elif not phone_ok:
         st.error(f"❌ {phone_error}")
@@ -958,8 +2846,11 @@ if generate_receipt:
     elif amount <= 0:
         st.error("❌ Please enter an amount greater than ₹0.")
 
+    elif is_non_resident and selected_purpose != "Donation":
+        st.error("❌ Non Residents can only donate to the Masjid.")
+
     elif not selected_purpose:
-        st.error("❌ Please select or enter the purpose.")
+        st.error("❌ Please select or enter purpose.")
 
     elif to_date_for_comparison < from_date_for_comparison:
         st.error("❌ 'To' month cannot be earlier than 'From' month.")
@@ -979,6 +2870,7 @@ if generate_receipt:
                 receipt_serial=serial,
                 received_from=received_from.strip(),
                 house_no=house_no.strip(),
+                address=address.strip(),
                 phone=phone.strip(),
                 amount=amount,
                 purpose=selected_purpose,
@@ -986,6 +2878,7 @@ if generate_receipt:
                 month_to=month_to,
                 payment_mode=payment_mode,
                 date_value=date_value.strftime("%d/%m/%Y"),
+                firewood_year=firewood_year,
             )
 
             saved, message = save_receipt(
@@ -993,6 +2886,7 @@ if generate_receipt:
                 transaction_id=st.session_state.transaction_id,
                 received_from=received_from.strip(),
                 house_no=house_no.strip(),
+                address=address.strip(),
                 amount=amount,
                 purpose=selected_purpose,
                 month_from=month_from,
@@ -1000,9 +2894,36 @@ if generate_receipt:
                 payment_mode=payment_mode,
                 phone=phone.strip(),
                 date_value=date_value.strftime("%d/%m/%Y"),
+                firewood_year=firewood_year,
             )
 
             if saved:
+                # --------------------------------------------------------
+                # UPDATE RESIDENT'S Monthly Contribution Paid Upto
+                # ONLY FOR MONTHLY CONTRIBUTION
+                # --------------------------------------------------------
+
+                updated = False
+                update_message = ""
+
+                if selected_purpose == "Monthly Contribution":
+                    updated, update_message = update_resident_paid_upto(
+                        received_from=received_from.strip(),
+                        house_no=house_no.strip(),
+                        month_to=month_to,
+                    )
+                firewood_updated = False
+                firewood_update_message = ""
+
+                if selected_purpose == "Fire Wood Contribution":
+                    firewood_updated, firewood_update_message = (
+                        update_resident_firewood_paid_upto(
+                            received_from=received_from.strip(),
+                            house_no=house_no.strip(),
+                            firewood_year=firewood_year,
+                        )
+                    )
+
                 st.session_state.pdf_bytes = pdf_bytes
                 st.session_state.generated_receipt_no = receipt_no
                 st.session_state.receipt_saved = True
@@ -1011,9 +2932,29 @@ if generate_receipt:
                     f"✅ Receipt {receipt_no} generated and saved to Google Sheets."
                 )
 
+                if selected_purpose == "Monthly Contribution":
+                    if updated:
+                        st.success(
+                            f"✅ {received_from.strip()} is now paid up to {month_to}."
+                        )
+                    else:
+                        st.warning(
+                            f"⚠️ Receipt was saved, but Monthly Contribution Paid Upto "
+                            f"could not be updated: {update_message}"
+                        )
+                if selected_purpose == "Fire Wood Contribution":
+                    if firewood_updated:
+                        st.success(
+                            f"✅ {received_from.strip()} is now paid up to {firewood_year} for Fire Wood Contribution."
+                        )
+                    else:
+                        st.warning(
+                            f"⚠️ Receipt was saved, but Fire Wood Contribution Paid Upto "
+                            f"could not be updated: {firewood_update_message}"
+                        )
+
             else:
                 st.error(f"❌ {message}")
-
         except Exception as e:
             st.error("❌ Receipt generation failed.")
             st.error(f"Details: {e}")
@@ -1147,6 +3088,7 @@ else:
         width="stretch",
     )
 
+
 # ============================================================
 # SUMMARY
 # ============================================================
@@ -1254,23 +3196,842 @@ if not receipts_df.empty:
         else:
             st.info(f"No collections recorded during {selected_month}.")
 
+
 # ============================================================
 # NEW RECEIPT
 # ============================================================
 
+# ============================================================
+# EXPENSE ENTRY
+# ============================================================
+
+st.markdown("---")
+st.subheader("➕ Add Expense")
+
+expense_col1, expense_col2 = st.columns(2)
+
+with expense_col1:
+    expense_date = st.date_input(
+        "Expense Date",
+        value=datetime.now().date(),
+        format="DD/MM/YYYY",
+        key="expense_date",
+    )
+
+    expense_type = st.selectbox(
+        "Expense Type",
+        [
+            "Salary",
+            "Electricity",
+            "Maintenance",
+            "Purchase",
+            "Other",
+        ],
+        key="expense_type",
+    )
+
+    if expense_type == "Salary":
+        salary_type = st.selectbox(
+            "Salary",
+            [
+                "Salary Paid to Khadim",
+                "Salary Paid to Imam Sahib",
+            ],
+            key="salary_type",
+        )
+
+        expense_particular = salary_type
+
+    elif expense_type == "Electricity":
+        electricity_type = st.selectbox(
+            "Electricity",
+            [
+                "Masjid Electricity Paid",
+                "Darasgah Electricity Paid",
+            ],
+            key="electricity_type",
+        )
+
+        expense_particular = electricity_type
+
+    else:
+        expense_particular = st.text_input(
+            "Particular",
+            placeholder="Enter expense particular",
+            key="expense_particular",
+        )
+
+
+with expense_col2:
+    expense_amount = st.number_input(
+        "Expense Amount (₹)",
+        min_value=0.0,
+        value=0.0,
+        step=100.0,
+        key="expense_amount",
+    )
+
+    expense_payment_mode = st.selectbox(
+        "Payment Mode",
+        [
+            "Cash",
+            "UPI",
+            "Bank Transfer",
+            "Cheque",
+            "Other",
+        ],
+        key="expense_payment_mode",
+    )
+
+    expense_remarks = st.text_input(
+        "Remarks",
+        placeholder="Optional",
+        key="expense_remarks",
+    )
+
+
+save_expense_button = st.button(
+    "💾 Save Expense",
+    type="primary",
+    width="stretch",
+    key="save_expense_button",
+)
+
+
+if save_expense_button:
+    if not expense_particular.strip():
+        st.error("❌ Please enter the expense particular.")
+
+    elif expense_amount <= 0:
+        st.error("❌ Please enter an amount greater than ₹0.")
+
+    else:
+        expense_saved, expense_message = save_expense(
+            date_value=expense_date.strftime("%d/%m/%Y"),
+            expense_type=expense_type,
+            particular=expense_particular.strip(),
+            amount=expense_amount,
+            payment_mode=expense_payment_mode,
+            remarks=expense_remarks.strip(),
+        )
+
+        if expense_saved:
+            st.success(
+                f"✅ {expense_particular} of ₹{expense_amount:,.2f} saved successfully."
+            )
+
+        else:
+            st.error(f"❌ Could not save expense: {expense_message}")
+
+
+# ============================================================
+# EXPENSE HISTORY
+# ============================================================
+
+st.markdown("---")
+st.subheader("📋 Expense History")
+
+expenses_df = get_expenses()
+
+if expenses_df.empty:
+    st.info("No expenses have been recorded yet.")
+
+else:
+    display_expenses = expenses_df.copy()
+
+    if "Amount" in display_expenses.columns:
+        display_expenses["Amount"] = pd.to_numeric(
+            display_expenses["Amount"],
+            errors="coerce",
+        ).fillna(0.0)
+
+    st.dataframe(
+        display_expenses,
+        width="stretch",
+        hide_index=True,
+    )
+
+# ============================================================
+# MASJID MONTHLY STATEMENT
+# ============================================================
+
 st.divider()
 
+st.header("📒 Masjid Monthly Statement")
 
-def reset_new_receipt():
-    st.session_state.receipt_serial = get_next_receipt_serial()
-    st.session_state.transaction_id = str(uuid.uuid4())
-    st.session_state.receipt_saved = False
-    st.session_state.pdf_bytes = None
-    st.session_state.generated_receipt_no = None
-
-
-st.button(
-    "🔄 Start New Receipt",
-    on_click=reset_new_receipt,
-    width="stretch",
+st.caption(
+    "Monthly income is calculated from Receipts and monthly "
+    "expenses are calculated from Masjid Expenses."
 )
+
+
+# ============================================================
+# MONTH SELECTION
+# ============================================================
+
+month_col1, month_col2 = st.columns([2, 1])
+
+with month_col1:
+    statement_month = st.selectbox(
+        "Select Month",
+        [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ],
+        index=datetime.now().month - 1,
+        key="statement_month",
+    )
+
+
+with month_col2:
+    statement_year = st.number_input(
+        "Year",
+        min_value=2020,
+        max_value=2100,
+        value=datetime.now().year,
+        step=1,
+        key="statement_year",
+    )
+
+
+selected_period = pd.Period(
+    f"{int(statement_year)}-"
+    f"{
+        [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+        ].index(statement_month)
+        + 1:02d}",
+    freq="M",
+)
+
+selected_month_text = f"{statement_month} {int(statement_year)}"
+
+
+# ============================================================
+# OPENING BALANCES
+# ============================================================
+
+opening_cash, opening_bank = get_previous_month_balances(selected_period)
+
+st.markdown("---")
+st.subheader(f"💰 Opening Balances — {selected_month_text}")
+
+opening_col1, opening_col2 = st.columns(2)
+
+with opening_col1:
+    opening_cash_manual = st.number_input(
+        "Last Month's Cash in Hand",
+        min_value=0.0,
+        value=float(opening_cash),
+        step=100.0,
+        key=f"opening_cash_{selected_month_text}",
+    )
+
+with opening_col2:
+    opening_bank_manual = st.number_input(
+        "Last Month's Balance with J&K Bank excluding Interest",
+        min_value=0.0,
+        value=float(opening_bank),
+        step=100.0,
+        key=f"opening_bank_{selected_month_text}",
+    )
+
+# Use the manually entered values for all calculations
+opening_cash = opening_cash_manual
+opening_bank = opening_bank_manual
+
+
+# ============================================================
+# INCOME
+# ============================================================
+
+income = calculate_monthly_income(selected_period)
+
+monthly_contribution = income.get(
+    "Monthly Contribution",
+    0.0,
+)
+
+
+friday_idd = income.get(
+    "Friday Collections",
+    0.0,
+)
+
+donation = income.get(
+    "Donation",
+    0.0,
+)
+
+
+recovery = income.get(
+    "Recovery from Imam Sahib",
+    0.0,
+)
+
+fire_wood = income.get(
+    "Fire Wood Contribution",
+    0.0,
+)
+
+
+# Additions during the month
+additions_during_month = (
+    +monthly_contribution + friday_idd + donation + recovery + fire_wood
+)
+
+# ============================================================
+# PAYMENT MODE WISE INCOME
+# ============================================================
+
+monthly_receipts = get_monthly_receipts(selected_period)
+
+bank_income = 0.0
+
+if not monthly_receipts.empty:
+    monthly_receipts["Amount"] = pd.to_numeric(
+        monthly_receipts["Amount"],
+        errors="coerce",
+    ).fillna(0.0)
+
+    monthly_receipts["Payment Mode"] = (
+        monthly_receipts["Payment Mode"].fillna("").astype(str).str.strip()
+    )
+
+    # --------------------------------------------------------
+    # BANK INCOME
+    # UPI + Bank Transfer + Cheque → Bank
+    # --------------------------------------------------------
+
+    bank_income = monthly_receipts.loc[
+        monthly_receipts["Payment Mode"].isin([
+            "UPI",
+            "Bank Transfer",
+            "Cheque",
+        ]),
+        "Amount",
+    ].sum()
+
+
+# ------------------------------------------------------------
+# CASH INCOME
+# Cash + Other → Cash
+# ------------------------------------------------------------
+
+cash_income = additions_during_month - bank_income
+
+
+# ============================================================
+# EXPENSES
+# ============================================================
+
+expenses = calculate_monthly_expenses(selected_period)
+
+salary_khadim = expenses.get(
+    "Salary Paid to Khadim",
+    0.0,
+)
+
+salary_imam = expenses.get(
+    "Salary Paid to Imam Sahib",
+    0.0,
+)
+
+masjid_electricity = expenses.get(
+    "Masjid Electricity Paid",
+    0.0,
+)
+
+darasgah_electricity = expenses.get(
+    "Darasgah Electricity Paid",
+    0.0,
+)
+
+other_expenses = expenses.get(
+    "Other Expenses",
+    0.0,
+)
+
+total_expenses = (
+    salary_khadim
+    + salary_imam
+    + masjid_electricity
+    + darasgah_electricity
+    + other_expenses
+)
+
+# ============================================================
+# PAYMENT MODE WISE EXPENSES
+# ============================================================
+
+monthly_expenses_df = get_monthly_expenses(selected_period)
+
+bank_expenses = 0.0
+
+if not monthly_expenses_df.empty:
+    if "Payment Mode" in monthly_expenses_df.columns:
+        monthly_expenses_df["Payment Mode"] = (
+            monthly_expenses_df["Payment Mode"].fillna("").astype(str).str.strip()
+        )
+
+        monthly_expenses_df["Amount"] = pd.to_numeric(
+            monthly_expenses_df["Amount"],
+            errors="coerce",
+        ).fillna(0.0)
+
+        # ----------------------------------------------------
+        # BANK EXPENSES
+        # UPI + Bank Transfer + Cheque → Bank
+        # ----------------------------------------------------
+
+        bank_expenses = monthly_expenses_df.loc[
+            monthly_expenses_df["Payment Mode"].isin([
+                "UPI",
+                "Bank Transfer",
+                "Cheque",
+            ]),
+            "Amount",
+        ].sum()
+
+
+# ------------------------------------------------------------
+# CASH EXPENSES
+# Cash + Other → Cash
+# ------------------------------------------------------------
+
+cash_expenses = total_expenses - bank_expenses
+
+
+# ============================================================
+# CLOSING BALANCES
+# ============================================================
+
+st.markdown("---")
+
+st.subheader(f"💰 Closing Balances — {selected_month_text}")
+
+# ============================================================
+# BANK TRANSFERS
+# ============================================================
+
+st.markdown("---")
+
+st.subheader(f"🏦 Bank Deposits / Withdrawals — {selected_month_text}")
+
+bank_transfer_col1, bank_transfer_col2 = st.columns(2)
+
+with bank_transfer_col1:
+    deposits_credits = st.number_input(
+        "Amount Credited to Bank",
+        min_value=0.0,
+        value=0.0,
+        step=100.0,
+        key=f"deposits_credits_{selected_month_text}",
+        help="Cash deposited into the bank account.",
+    )
+
+with bank_transfer_col2:
+    withdrawals_debits = st.number_input(
+        "Amount Debited from Bank",
+        min_value=0.0,
+        value=0.0,
+        step=100.0,
+        key=f"withdrawals_debits_{selected_month_text}",
+        help="Cash withdrawn from the bank account.",
+    )
+# ------------------------------------------------------------
+# Separate Cash and Bank movements
+# ------------------------------------------------------------
+
+# INCOME:
+# Cash + Other              → Cash
+# UPI + Bank Transfer + Cheque → Bank
+
+cash_income = additions_during_month - bank_income
+
+
+# EXPENSES:
+# Cash + Other              → Cash
+# UPI + Bank Transfer + Cheque → Bank
+
+cash_expenses = total_expenses - bank_expenses
+
+
+# ------------------------------------------------------------
+# Automatically calculate closing balances
+# ------------------------------------------------------------
+
+closing_bank = (
+    opening_bank + bank_income - bank_expenses + deposits_credits - withdrawals_debits
+)
+
+closing_cash = (
+    opening_cash + cash_income - cash_expenses - deposits_credits + withdrawals_debits
+)
+
+
+balance_col1, balance_col2 = st.columns(2)
+
+
+with balance_col1:
+    st.number_input(
+        "Balance with J&K Bank excluding Interest",
+        min_value=0.0,
+        value=float(closing_bank),
+        step=100.0,
+        disabled=True,
+        key="calculated_closing_bank",
+    )
+
+
+with balance_col2:
+    st.number_input(
+        "Cash in Hand",
+        min_value=0.0,
+        value=float(closing_cash),
+        step=100.0,
+        disabled=True,
+        key="calculated_closing_cash",
+    )
+# ============================================================
+# CALCULATE STATEMENT TOTALS
+# ============================================================
+
+total_resources = opening_cash + additions_during_month + opening_bank
+
+closing_resources = total_expenses + closing_bank + closing_cash
+
+difference = total_resources - closing_resources
+
+
+# ============================================================
+# DISPLAY STATEMENT
+# ============================================================
+
+st.markdown("---")
+
+st.subheader(f"📊 Income Expenditure Details for Month of {selected_month_text}")
+
+
+# ============================================================
+# INCOME SIDE
+# ============================================================
+
+income_display_col, expense_display_col = st.columns(2)
+
+
+with income_display_col:
+    st.markdown("### 📥 Income Side")
+
+    income_table = pd.DataFrame(
+        [
+            [
+                "Last Month's Cash in Hand",
+                opening_cash,
+            ],
+            [
+                "Additions During the month",
+                additions_during_month,
+            ],
+            [
+                "a) Monthly Contribution",
+                monthly_contribution,
+            ],
+            [
+                "b) Friday Collections",
+                friday_idd,
+            ],
+            [
+                "c) Donation",
+                donation,
+            ],
+            [
+                "Recovery from Imam Sahib",
+                recovery,
+            ],
+            [
+                "Fire Wood Contribution",
+                fire_wood,
+            ],
+            [
+                "Last Months Balance in Bank excluding Interest",
+                opening_bank,
+            ],
+        ],
+        columns=[
+            "Particulars",
+            "Amount",
+        ],
+    )
+
+    income_table["Amount"] = income_table["Amount"].map(lambda x: f"₹{x:,.2f}")
+
+    st.dataframe(
+        income_table,
+        width="stretch",
+        hide_index=True,
+    )
+
+    st.metric(
+        "TOTAL",
+        f"₹{total_resources:,.2f}",
+    )
+
+
+# ============================================================
+# EXPENSE SIDE
+# ============================================================
+
+with expense_display_col:
+    st.markdown("### 📤 Expenses Side")
+
+    expense_table = pd.DataFrame(
+        [
+            [
+                "Salary Paid to Khadim",
+                salary_khadim,
+            ],
+            [
+                "Salary Paid to Imam Sahib",
+                salary_imam,
+            ],
+            [
+                "Masjid Electricity Paid",
+                masjid_electricity,
+            ],
+            [
+                "Darasgah Electricity Paid",
+                darasgah_electricity,
+            ],
+            [
+                "Other Expenses",
+                other_expenses,
+            ],
+            [
+                "Amount Credited to Bank",
+                deposits_credits,
+            ],
+            [
+                "Amount Debited from Bank",
+                withdrawals_debits,
+            ],
+            [
+                "Balance with J&K Bank excluding Interest",
+                closing_bank,
+            ],
+            [
+                "Cash in Hand",
+                closing_cash,
+            ],
+        ],
+        columns=[
+            "Particulars",
+            "Amount",
+        ],
+    )
+
+    expense_table["Amount"] = expense_table["Amount"].map(lambda x: f"₹{x:,.2f}")
+
+    st.dataframe(
+        expense_table,
+        width="stretch",
+        hide_index=True,
+    )
+
+    st.metric(
+        "TOTAL",
+        f"₹{closing_resources:,.2f}",
+    )
+
+
+# ============================================================
+# BALANCE CHECK
+# ============================================================
+
+st.markdown("---")
+
+if abs(difference) < 0.01:
+    st.success("✅ Monthly statement is balanced.")
+
+else:
+    st.warning(f"⚠️ Statement difference: ₹{difference:,.2f}")
+
+
+# ============================================================
+# SAVE MONTH
+# ============================================================
+
+st.markdown("---")
+
+st.subheader(f"💾 Save {selected_month_text}")
+
+st.warning(
+    "💡 One click saves this month to both "
+    "'Monthly Accounts' and the formatted 'Masjid Monthly' statement."
+    " Saving the same month again will update that month's record."
+)
+
+
+save_month_button = st.button(
+    f"💾 Save {selected_month_text} Accounts",
+    type="primary",
+    width="stretch",
+    key="save_month_accounts",
+)
+
+if save_month_button:
+    # ========================================================
+    # 1. SAVE TO MONTHLY ACCOUNTS
+    # ========================================================
+
+    month_data = {
+        "Month": selected_month_text,
+        "Last Month Cash": opening_cash,
+        "Monthly Contribution": monthly_contribution,
+        "Friday Collections": friday_idd,
+        "Donation": donation,
+        "Recovery from Imam Sahib": recovery,
+        "Fire Wood Contribution": fire_wood,
+        "Total Income": total_resources,
+        "Salary Paid to Khadim": salary_khadim,
+        "Salary Paid to Imam Sahib": salary_imam,
+        "Masjid Electricity Paid": masjid_electricity,
+        "Darasgah Electricity Paid": darasgah_electricity,
+        "Other Expenses": other_expenses,
+        "Total Expenses": total_expenses,
+        "Amount Credited to Bank": deposits_credits,
+        "Amount Debited from Bank": withdrawals_debits,
+        "Bank Balance": closing_bank,
+        "Cash in Hand": closing_cash,
+        "Closing Balance": closing_resources,
+    }
+
+    # ========================================================
+    # 2. SAVE TO MONTHLY ACCOUNTS SHEET
+    # ========================================================
+
+    saved_month, save_message = save_monthly_account(month_data)
+
+    # ========================================================
+    # 3. UPDATE MASJID MONTHLY STATEMENT
+    # ========================================================
+
+    saved_statement, statement_message = save_masjid_monthy_statement(
+        month_name=statement_month,
+        year=int(statement_year),
+        opening_cash=opening_cash,
+        opening_bank=opening_bank,
+        additions_during_month=additions_during_month,
+        monthly_contribution=monthly_contribution,
+        friday_idd=friday_idd,
+        donation=donation,
+        recovery=recovery,
+        fire_wood=fire_wood,
+        salary_khadim=salary_khadim,
+        salary_imam=salary_imam,
+        masjid_electricity=masjid_electricity,
+        darasgah_electricity=darasgah_electricity,
+        other_expenses=other_expenses,
+        deposits_credits=deposits_credits,
+        withdrawals_debits=withdrawals_debits,
+        closing_bank=closing_bank,
+        closing_cash=closing_cash,
+    )
+    # ========================================================
+    # 4. SHOW RESULT
+    # ========================================================
+
+    if saved_month and saved_statement:
+        st.success(f"✅ {selected_month_text} saved successfully!")
+
+        st.info("📒 Monthly Accounts updated and 📊 Masjid Monthly statement updated")
+
+    elif saved_month and not saved_statement:
+        st.warning(
+            f"⚠️ {selected_month_text} was saved to "
+            "Monthly Accounts, but Masjid Monthly "
+            "could not be updated."
+        )
+
+        st.error(f"Masjid Monthly error: {statement_message}")
+
+    elif not saved_month and saved_statement:
+        st.warning(
+            f"⚠️ Masjid Monthly was updated, but "
+            f"{selected_month_text} could not be saved "
+            "to Monthly Accounts."
+        )
+
+        st.error(f"Monthly Accounts error: {save_message}")
+
+    else:
+        st.error(f"❌ Could not save {selected_month_text}.")
+
+        st.error(f"Monthly Accounts: {save_message}")
+
+        st.error(f"Masjid Monthly: {statement_message}")
+
+
+# ============================================================
+# SAVED MONTHLY ACCOUNTS HISTORY
+# ============================================================
+
+st.markdown("---")
+
+st.subheader("📚 Saved Monthly Accounts")
+
+saved_accounts = get_monthly_accounts()
+
+if saved_accounts.empty:
+    st.info("No monthly accounts have been saved yet.")
+
+else:
+    display_accounts = saved_accounts.copy()
+
+    # Sort newest month first
+    if "Month" in display_accounts.columns:
+        display_accounts["_SortMonth"] = pd.to_datetime(
+            display_accounts["Month"],
+            format="%B %Y",
+            errors="coerce",
+        )
+
+        display_accounts = display_accounts.sort_values(
+            "_SortMonth",
+            ascending=False,
+        ).drop(columns=["_SortMonth"])
+
+    # Format monetary columns
+    for column in MONTHLY_ACCOUNT_COLUMNS:
+        if column != "Month" and column in display_accounts.columns:
+            display_accounts[column] = pd.to_numeric(
+                display_accounts[column],
+                errors="coerce",
+            ).fillna(0.0)
+
+    st.dataframe(
+        display_accounts,
+        width="stretch",
+        hide_index=True,
+    )
