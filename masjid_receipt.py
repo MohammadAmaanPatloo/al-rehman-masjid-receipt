@@ -107,7 +107,7 @@ MASJID_NAME = "AL Rehman Masjid Sharief"
 MASJID_ADDRESS = "Sir Syed Colony, Upper Soura, Srinagar, J&K"
 MASJID_BANK = "J&K Bank, Soura"
 MASJID_ACCOUNT = "0204040100000553"
-MASJID_IFSC = "JAKA0SOURA"
+MASJID_IFSC = "JAKA0SOOURA"
 
 # The supplied receipt visibly shows "S.No. M 1001".
 # The system starts from 515 and increments automatically.
@@ -2395,7 +2395,7 @@ if st.session_state.pdf_bytes:
 
     if whatsapp_number:
         whatsapp_message = (
-            f"Asalamualikum {received_from},\n\n"
+            f"Assalamualaikum {received_from},\n\n"
             f"Thank you for your contribution to {MASJID_NAME}.\n\n"
             f"Masjid Receipt: {st.session_state.generated_receipt_no}\n"
             f"Amount: ₹{amount:,.2f}\n"
