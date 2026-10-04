@@ -215,7 +215,13 @@ st.markdown(
 
         h1 {
             font-size: 1.55rem !important;
-            line-height: 1.2 !important;
+            line-height: 1.3 !important;
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.75rem !important;
+            padding-top: 0.15rem !important;
+            overflow: visible !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
         }
 
         h2 {
@@ -337,9 +343,15 @@ st.markdown(
             padding-right: 0.55rem;
         }
 
-
         h1 {
             font-size: 1.4rem !important;
+            line-height: 1.3 !important;
+            margin-top: 0.2rem !important;
+            margin-bottom: 0.65rem !important;
+            padding-top: 0.1rem !important;
+            overflow: visible !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
         }
 
         h2 {
@@ -3031,7 +3043,7 @@ else:
     with filter_col3:
         rows_to_show = st.selectbox(
             "Receipts to Display",
-            [25, 50, 100, 250],
+            [15, 30, 50, 100],
             index=1,
             key="receipt_history_rows",
         )
@@ -3674,7 +3686,7 @@ else:
     with result_col2:
         rows_to_display = st.selectbox(
             "Rows",
-            [25, 50, 100, 250],
+            [15, 30, 50, 100],
             index=0,
             key="expense_history_rows",
         )
@@ -3879,59 +3891,6 @@ additions_during_month = (
 )
 
 # ============================================================
-# INCOME SUMMARY
-# ============================================================
-
-st.markdown(
-    '<div class="account-card">',
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    '<div class="account-section-title">📥 Income</div>',
-    unsafe_allow_html=True,
-)
-
-income_col1, income_col2 = st.columns(2)
-
-with income_col1:
-    st.metric(
-        "Monthly Contribution",
-        f"₹{monthly_contribution:,.2f}",
-    )
-
-    st.metric(
-        "Friday Collections",
-        f"₹{friday_idd:,.2f}",
-    )
-
-    st.metric(
-        "Donation",
-        f"₹{donation:,.2f}",
-    )
-
-with income_col2:
-    st.metric(
-        "Recovery from Imam Sahib",
-        f"₹{recovery:,.2f}",
-    )
-
-    st.metric(
-        "Fire Wood Contribution",
-        f"₹{fire_wood:,.2f}",
-    )
-
-    st.metric(
-        "Total Income",
-        f"₹{additions_during_month:,.2f}",
-    )
-
-st.markdown(
-    "</div>",
-    unsafe_allow_html=True,
-)
-
-# ============================================================
 # PAYMENT MODE WISE INCOME
 # ============================================================
 
@@ -4015,59 +3974,6 @@ total_expenses = (
 # PAYMENT MODE WISE EXPENSES
 # ============================================================
 
-# ============================================================
-# EXPENSE SUMMARY
-# ============================================================
-
-st.markdown(
-    '<div class="account-card">',
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    '<div class="account-section-title">📤 Expenses</div>',
-    unsafe_allow_html=True,
-)
-
-expense_col1, expense_col2 = st.columns(2)
-
-with expense_col1:
-    st.metric(
-        "Salary Paid to Khadim",
-        f"₹{salary_khadim:,.2f}",
-    )
-
-    st.metric(
-        "Salary Paid to Imam Sahib",
-        f"₹{salary_imam:,.2f}",
-    )
-
-    st.metric(
-        "Masjid Electricity",
-        f"₹{masjid_electricity:,.2f}",
-    )
-
-with expense_col2:
-    st.metric(
-        "Darasgah Electricity",
-        f"₹{darasgah_electricity:,.2f}",
-    )
-
-    st.metric(
-        "Other Expenses",
-        f"₹{other_expenses:,.2f}",
-    )
-
-    st.metric(
-        "Total Expenses",
-        f"₹{total_expenses:,.2f}",
-    )
-
-st.markdown(
-    "</div>",
-    unsafe_allow_html=True,
-)
-
 monthly_expenses_df = get_monthly_expenses(selected_period)
 
 bank_expenses = 0.0
@@ -4117,6 +4023,9 @@ st.subheader(f"💰 Closing Balances — {selected_month_text}")
 # ============================================================
 # BANK MOVEMENT
 # ============================================================
+
+st.markdown("---")
+st.subheader(f"🏦 Bank Deposits / Withdrawals — {selected_month_text}")
 
 st.markdown(
     '<div class="account-card">',
@@ -4550,11 +4459,19 @@ else:
             ).fillna(0.0)
 
     # --------------------------------------------------------
-    # RESPONSIVE MONTH-BY-MONTH HISTORY
+    # MONTH-BY-MONTH EXPANDABLE HISTORY
     # --------------------------------------------------------
 
     for index, row in display_accounts.iterrows():
         month_name = str(row.get("Month", "Unknown Month")).strip()
+
+        # ----------------------------------------------------
+        # SUMMARY VALUES
+        # ----------------------------------------------------
+
+        total_income_saved = float(row.get("Total Income", 0.0))
+
+        total_expenses_saved = float(row.get("Total Expenses", 0.0))
 
         closing_balance = float(row.get("Closing Balance", 0.0))
 
@@ -4562,13 +4479,22 @@ else:
 
         cash_in_hand = float(row.get("Cash in Hand", 0.0))
 
+        # ----------------------------------------------------
+        # MONTH HEADER
+        # ----------------------------------------------------
+
         with st.expander(
-            f"📅 {month_name}  •  Closing ₹{closing_balance:,.2f}",
+            (
+                f"📅 {month_name}"
+                f"  •  📥 ₹{total_income_saved:,.2f}"
+                f"  •  📤 ₹{total_expenses_saved:,.2f}"
+                f"  •  📊 ₹{closing_balance:,.2f}"
+            ),
             expanded=(index == display_accounts.index[0]),
         ):
-            # ------------------------------------------------
+            # =================================================
             # QUICK SUMMARY
-            # ------------------------------------------------
+            # =================================================
 
             summary_col1, summary_col2, summary_col3 = st.columns(3)
 
@@ -4592,36 +4518,294 @@ else:
 
             st.markdown("---")
 
-            # ------------------------------------------------
-            # FULL MONTH DETAILS
-            # ------------------------------------------------
+            # =================================================
+            # INCOME
+            # =================================================
 
-            history_rows = []
+            st.markdown(
+                '<div class="account-card">',
+                unsafe_allow_html=True,
+            )
 
-            for column in MONTHLY_ACCOUNT_COLUMNS:
-                if column == "Month":
-                    continue
+            st.markdown(
+                '<div class="account-section-title">📥 Income</div>',
+                unsafe_allow_html=True,
+            )
 
-                if column not in row.index:
-                    continue
+            income_rows = [
+                [
+                    "Last Month Cash",
+                    float(
+                        row.get(
+                            "Last Month Cash",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Monthly Contribution",
+                    float(
+                        row.get(
+                            "Monthly Contribution",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Friday Collections",
+                    float(
+                        row.get(
+                            "Friday Collections",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Donation",
+                    float(
+                        row.get(
+                            "Donation",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Recovery from Imam Sahib",
+                    float(
+                        row.get(
+                            "Recovery from Imam Sahib",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Fire Wood Contribution",
+                    float(
+                        row.get(
+                            "Fire Wood Contribution",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Total Income",
+                    float(
+                        row.get(
+                            "Total Income",
+                            0.0,
+                        )
+                    ),
+                ],
+            ]
 
-                value = row[column]
+            income_table = pd.DataFrame(
+                income_rows,
+                columns=[
+                    "Particulars",
+                    "Amount",
+                ],
+            )
 
-                try:
-                    value = float(value)
-                    formatted_value = f"₹{value:,.2f}"
-                except (TypeError, ValueError):
-                    formatted_value = str(value)
+            income_table["Amount"] = income_table["Amount"].map(lambda x: f"₹{x:,.2f}")
 
-                history_rows.append([column, formatted_value])
+            st.dataframe(
+                income_table,
+                width="stretch",
+                hide_index=True,
+            )
 
-            history_df = pd.DataFrame(
-                history_rows,
-                columns=["Particulars", "Amount"],
+            st.markdown(
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+            # =================================================
+            # EXPENSES
+            # =================================================
+
+            st.markdown(
+                '<div class="account-card">',
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                '<div class="account-section-title">📤 Expenses</div>',
+                unsafe_allow_html=True,
+            )
+
+            expense_rows = [
+                [
+                    "Salary Paid to Khadim",
+                    float(
+                        row.get(
+                            "Salary Paid to Khadim",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Salary Paid to Imam Sahib",
+                    float(
+                        row.get(
+                            "Salary Paid to Imam Sahib",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Masjid Electricity Paid",
+                    float(
+                        row.get(
+                            "Masjid Electricity Paid",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Darasgah Electricity Paid",
+                    float(
+                        row.get(
+                            "Darasgah Electricity Paid",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Other Expenses",
+                    float(
+                        row.get(
+                            "Other Expenses",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Total Expenses",
+                    float(
+                        row.get(
+                            "Total Expenses",
+                            0.0,
+                        )
+                    ),
+                ],
+            ]
+
+            expense_table = pd.DataFrame(
+                expense_rows,
+                columns=[
+                    "Particulars",
+                    "Amount",
+                ],
+            )
+
+            expense_table["Amount"] = expense_table["Amount"].map(
+                lambda x: f"₹{x:,.2f}"
             )
 
             st.dataframe(
-                history_df,
+                expense_table,
                 width="stretch",
                 hide_index=True,
+            )
+
+            st.markdown(
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+            # =================================================
+            # BANK MOVEMENT
+            # =================================================
+
+            st.markdown(
+                '<div class="account-card">',
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                '<div class="account-section-title">🏦 Bank Movement</div>',
+                unsafe_allow_html=True,
+            )
+
+            bank_movement_rows = [
+                [
+                    "Amount Credited to Bank",
+                    float(
+                        row.get(
+                            "Amount Credited to Bank",
+                            0.0,
+                        )
+                    ),
+                ],
+                [
+                    "Amount Debited from Bank",
+                    float(
+                        row.get(
+                            "Amount Debited from Bank",
+                            0.0,
+                        )
+                    ),
+                ],
+            ]
+
+            bank_movement_table = pd.DataFrame(
+                bank_movement_rows,
+                columns=[
+                    "Particulars",
+                    "Amount",
+                ],
+            )
+
+            bank_movement_table["Amount"] = bank_movement_table["Amount"].map(
+                lambda x: f"₹{x:,.2f}"
+            )
+
+            st.dataframe(
+                bank_movement_table,
+                width="stretch",
+                hide_index=True,
+            )
+
+            st.markdown(
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+            # =================================================
+            # CLOSING BALANCES
+            # =================================================
+
+            st.markdown(
+                '<div class="account-card">',
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                '<div class="account-section-title">📊 Closing Balances</div>',
+                unsafe_allow_html=True,
+            )
+
+            balance_col1, balance_col2, balance_col3 = st.columns(3)
+
+            with balance_col1:
+                st.metric(
+                    "🏦 Bank Balance",
+                    f"₹{bank_balance:,.2f}",
+                )
+
+            with balance_col2:
+                st.metric(
+                    "💵 Cash in Hand",
+                    f"₹{cash_in_hand:,.2f}",
+                )
+
+            with balance_col3:
+                st.metric(
+                    "📊 Closing Balance",
+                    f"₹{closing_balance:,.2f}",
+                )
+
+            st.markdown(
+                "</div>",
+                unsafe_allow_html=True,
             )
