@@ -84,20 +84,325 @@ if not check_password():
 st.markdown(
     """
     <style>
+
+    /* =========================================================
+       GLOBAL UI
+       ========================================================= */
+
     [data-testid="InputInstructions"] {
         display: none !important;
     }
+
     .receipt-card {
-        border: 1px solid #d0d0d0;
-        border-radius: 10px;
-        padding: 18px;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        margin-bottom: 12px;
+    }    
+    
+    .expense-card {
+        padding: 0;
+        border: none;
+        border-radius: 0;
         margin-bottom: 12px;
     }
+    
+    /* ============================================================
+    MONTHLY ACCOUNTS
+    ============================================================ */
+
+    .account-card {
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        margin-bottom: 12px;
+    }
+
+    .account-section-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .account-total {
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        margin-top: 8px;
+    }
+
+    @media (max-width: 768px) {
+
+        .account-card {
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            margin-bottom: 10px;
+        }
+
+        .account-section-title {
+            font-size: 1rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .account-total {
+            padding: 9px 10px;
+        }
+    }
+
+    .expense-section-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .expense-card {
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            margin-bottom: 10px;
+        }
+
+        .expense-section-title {
+            font-size: 1rem;
+            margin-bottom: 0.35rem;
+        }
+    }
+
+    .receipt-section-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .receipt-card {
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            margin-bottom: 10px;
+        }
+
+        .receipt-section-title {
+            font-size: 1rem;
+            margin-bottom: 0.35rem;
+        }
+    }
+
+
+    /* =========================================================
+       MOBILE
+       ========================================================= */
+
+    @media (max-width: 768px) {
+
+        /* -----------------------------------------------------
+           Main page spacing
+           ----------------------------------------------------- */
+
+        .block-container {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            padding-top: 0.75rem;
+            padding-bottom: 2rem;
+        }
+
+
+        /* -----------------------------------------------------
+           Headings
+           ----------------------------------------------------- */
+
+        h1 {
+            font-size: 1.55rem !important;
+            line-height: 1.2 !important;
+        }
+
+        h2 {
+            font-size: 1.3rem !important;
+            line-height: 1.25 !important;
+        }
+
+        h3 {
+            font-size: 1.15rem !important;
+            line-height: 1.25 !important;
+        }
+
+
+        /* -----------------------------------------------------
+           Buttons
+           ----------------------------------------------------- */
+
+        .stButton > button,
+        .stDownloadButton > button {
+            width: 100%;
+            min-height: 46px;
+            font-size: 15px;
+        }
+
+
+        /* -----------------------------------------------------
+           Inputs
+           
+           16px prevents automatic zooming on many phones.
+           ----------------------------------------------------- */
+
+        input,
+        textarea,
+        [data-baseweb="select"] {
+            font-size: 16px !important;
+        }
+
+
+        /* -----------------------------------------------------
+           Reduce excessive vertical spacing
+           ----------------------------------------------------- */
+
+        [data-testid="stVerticalBlock"] {
+            gap: 0.65rem;
+        }
+
+
+        /* -----------------------------------------------------
+           Metrics
+           ----------------------------------------------------- */
+
+        [data-testid="stMetric"] {
+            padding: 5px;
+        }
+
+        [data-testid="stMetricValue"] {
+            font-size: 1.15rem !important;
+        }
+
+        [data-testid="stMetricLabel"] {
+            font-size: 0.8rem !important;
+        }
+
+        [data-testid="stMetric"] {
+            padding: 5px;
+            margin-bottom: 8px;
+        }
+
+        /* -----------------------------------------------------
+        Dataframes / tables
+        ----------------------------------------------------- */
+
+        [data-testid="stDataFrame"] {
+            font-size: 12px;
+        }
+
+
+
+
+        /* -----------------------------------------------------
+           Dividers
+           ----------------------------------------------------- */
+
+        hr {
+            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+
+        /* -----------------------------------------------------
+           Sidebar
+           ----------------------------------------------------- */
+
+        section[data-testid="stSidebar"] {
+            width: 85vw !important;
+            max-width: 340px !important;
+        }
+
+
+        /* -----------------------------------------------------
+           Receipt card
+           ----------------------------------------------------- */
+
+        .receipt-card {
+            padding: 12px;
+            border-radius: 8px;
+        }
+    }
+
+
+    /* =========================================================
+       SMALL PHONES
+       ========================================================= */
+
+    @media (max-width: 480px) {
+
+        .block-container {
+            padding-left: 0.55rem;
+            padding-right: 0.55rem;
+        }
+
+
+        h1 {
+            font-size: 1.4rem !important;
+        }
+
+        h2 {
+            font-size: 1.2rem !important;
+        }
+
+        h3 {
+            font-size: 1.05rem !important;
+        }
+
+
+        [data-testid="stMetricValue"] {
+            font-size: 1rem !important;
+        }
+
+        [data-testid="stMetricLabel"] {
+            font-size: 0.75rem !important;
+        }
+
+
+        .stButton > button,
+        .stDownloadButton > button {
+            min-height: 48px;
+            font-size: 14px;
+        }
+    }
+    /* =========================================================
+    RECEIPT ACTION BUTTONS
+    ========================================================= */
+
+    .receipt-whatsapp-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 48px;
+        padding: 12px 16px;
+        background-color: #25D366;
+        color: #ffffff !important;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+        text-decoration: none !important;
+        box-sizing: border-box;
+    }
+
+    .receipt-whatsapp-button:hover {
+        background-color: #1DA851;
+        color: #ffffff !important;
+    }
+
+    @media (max-width: 480px) {
+        .receipt-whatsapp-button {
+            min-height: 50px;
+            font-size: 15px;
+        }
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
 )
-
 # ============================================================
 # MASJID SETTINGS
 # Based on the supplied physical masjid receipt
@@ -138,6 +443,125 @@ def get_last_synced():
     latest = max(CACHE_SYNC_TIMES.values())
 
     return latest.strftime("%d-%m-%Y %I:%M:%S %p")
+
+
+# ============================================================
+# CACHE MANAGEMENT
+# ============================================================
+
+
+def refresh_google_sheets():
+    """
+    Clear all Google Sheets data caches.
+
+    Use this only when a complete manual refresh is required.
+    Normal save operations should clear only the cache
+    related to the sheet that was changed.
+    """
+
+    try:
+        get_receipts.clear()
+    except Exception:
+        pass
+
+    try:
+        get_masjid_residents.clear()
+    except Exception:
+        pass
+
+    try:
+        get_expenses.clear()
+    except Exception:
+        pass
+
+    try:
+        get_monthly_accounts.clear()
+    except Exception:
+        pass
+
+    try:
+        get_monthly_receipts.clear()
+    except Exception:
+        pass
+
+    try:
+        get_monthly_expenses.clear()
+    except Exception:
+        pass
+
+    try:
+        calculate_monthly_income.clear()
+    except Exception:
+        pass
+
+    try:
+        calculate_monthly_expenses.clear()
+    except Exception:
+        pass
+
+
+def clear_receipt_cache():
+    """
+    Clear only caches affected by a receipt change.
+    """
+
+    try:
+        get_receipts.clear()
+    except Exception:
+        pass
+
+    try:
+        get_monthly_receipts.clear()
+    except Exception:
+        pass
+
+    try:
+        calculate_monthly_income.clear()
+    except Exception:
+        pass
+
+
+def clear_resident_cache():
+    """
+    Clear only caches affected by resident changes.
+    """
+
+    try:
+        get_masjid_residents.clear()
+    except Exception:
+        pass
+
+
+def clear_expense_cache():
+    """
+    Clear only caches affected by an expense change.
+    """
+
+    try:
+        get_expenses.clear()
+    except Exception:
+        pass
+
+    try:
+        get_monthly_expenses.clear()
+    except Exception:
+        pass
+
+    try:
+        calculate_monthly_expenses.clear()
+    except Exception:
+        pass
+
+
+def clear_monthly_account_cache():
+    """
+    Clear only caches affected by monthly account changes.
+    """
+
+    try:
+        get_monthly_accounts.clear()
+    except Exception:
+        pass
 
 
 # ============================================================
@@ -585,7 +1009,7 @@ def update_resident_paid_upto(received_from, house_no, month_to):
             month_to,
         )
 
-        get_masjid_residents.clear()
+        clear_resident_cache()
 
         return True, f"Paid Upto updated to {month_to}."
 
@@ -662,7 +1086,7 @@ def update_resident_firewood_paid_upto(
             firewood_year,
         )
 
-        get_masjid_residents.clear()
+        clear_resident_cache()
 
         return (
             True,
@@ -1173,13 +1597,12 @@ def generate_receipt_pdf(
 
     # Right side signature
     signature_content = [
-        Paragraph("Signature", small_center),
         Spacer(1, 1),
         signature_image,
-        Spacer(1, 1),
         Paragraph("________________________", small_center),
+        Spacer(1, 2),
+        Paragraph("Signature", small_center),
     ]
-
     # Two-column footer
     footer_table = Table(
         [
@@ -1237,8 +1660,19 @@ def save_receipt(
     try:
         receipt_no = receipt_display_no(receipt_serial)
 
-        # Use cached data instead of reading Google Sheets again
-        existing = get_receipts()
+        # ============================================================
+        # OPEN GOOGLE SHEETS DIRECTLY
+        # IMPORTANT:
+        # Do NOT use cached get_receipts() for duplicate protection.
+        # ============================================================
+
+        spreadsheet = conn.client._open_spreadsheet()
+        worksheet = spreadsheet.worksheet("Receipts")
+
+        # Read the latest data directly from Google Sheets
+        records = worksheet.get_all_records()
+
+        existing = pd.DataFrame(records)
 
         # Prevent duplicate Transaction ID
         if not existing.empty:
@@ -1280,8 +1714,8 @@ def save_receipt(
             value_input_option="USER_ENTERED",
         )
 
-        # Clear cache so next read gets latest data
-        get_receipts.clear()
+        # Clear only caches affected by this receipt
+        clear_receipt_cache()
 
         return True, "Receipt saved successfully."
 
@@ -1376,8 +1810,8 @@ def save_expense(
             value_input_option="USER_ENTERED",
         )
 
-        # Refresh cache
-        get_expenses.clear()
+        # Clear only caches affected by this expense
+        clear_expense_cache()
 
         return True, "Expense saved successfully."
 
@@ -1530,7 +1964,7 @@ def save_monthly_account(month_data):
 
             message = f"{month_value} monthly account saved successfully."
 
-        get_monthly_accounts.clear()
+        clear_monthly_account_cache()
 
         return True, message
 
@@ -1812,9 +2246,19 @@ with st.sidebar:
 
 
 def reset_new_receipt():
+    # Refresh only receipt-related cached data
+    clear_receipt_cache()
+
+    # Get the latest receipt number from Google Sheets
     st.session_state.receipt_serial = get_next_receipt_serial()
+
+    # Create a new transaction
     st.session_state.transaction_id = str(uuid.uuid4())
+
+    # Allow a new receipt to be generated
     st.session_state.receipt_saved = False
+
+    # Remove previous generated PDF
     st.session_state.pdf_bytes = None
     st.session_state.generated_receipt_no = None
 
@@ -1824,10 +2268,21 @@ def reset_new_receipt():
 # ============================================================
 
 st.header("Create Masjid Receipt")
+
 residents_df = get_masjid_residents()
+
 col1, col2 = st.columns(2)
 
 with col1:
+    st.markdown(
+        '<div class="receipt-card">',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="receipt-section-title">👤 Payer Information</div>',
+        unsafe_allow_html=True,
+    )
     if not residents_df.empty:
         # ----------------------------------------------------
         # PREPARE OPTIONS
@@ -1968,7 +2423,20 @@ with col1:
         house_no = ""
         phone = ""
 
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True,
+        )
 with col2:
+    st.markdown(
+        '<div class="receipt-card">',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="receipt-section-title">🧾 Payment Information</div>',
+        unsafe_allow_html=True,
+    )
     # ==========================================================
     # PURPOSE OPTIONS
     # Residents -> All purposes
@@ -2154,13 +2622,16 @@ with col2:
         "Payment Mode",
         ["Cash", "UPI", "Bank Transfer", "Cheque", "Other"],
     )
+    st.markdown(
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
 date_value = st.date_input(
     "Receipt Date",
     value=datetime.now().date(),
     format="DD/MM/YYYY",
 )
-
 # ============================================================
 # LIVE PREVIEW
 # ============================================================
@@ -2213,14 +2684,31 @@ else:
     from_date_for_comparison = datetime.now()
     to_date_for_comparison = datetime.now()
 
+# ============================================================
+# GENERATE RECEIPT - RESPONSIVE ACTION AREA
+# ============================================================
+
 st.divider()
-st.header("Generate Masjid Receipt")
+st.subheader("🧾 Generate Masjid Receipt")
+
+st.caption(
+    "Verify the payer, amount, purpose and payment details "
+    "before generating the receipt."
+)
 
 generate_receipt = st.button(
     "🧾 Generate & Save Receipt",
     type="primary",
     width="stretch",
+    disabled=st.session_state.receipt_saved,
+    key="generate_masjid_receipt",
 )
+
+if st.session_state.receipt_saved:
+    st.info(
+        "This receipt has already been saved. "
+        "Download it below or select Start New Receipt."
+    )
 
 if generate_receipt:
     name_ok, name_error = validate_name(received_from)
@@ -2366,7 +2854,12 @@ if generate_receipt:
 
 if st.session_state.pdf_bytes:
     st.divider()
-    st.subheader("📄 Receipt Ready")
+
+    st.success(f"Receipt {st.session_state.generated_receipt_no} is ready.")
+
+    st.subheader("📄 Download & Share")
+
+    st.caption("Download the receipt PDF and optionally share it through WhatsApp.")
 
     safe_name = re.sub(
         r"[^A-Za-z0-9]+",
@@ -2409,19 +2902,13 @@ if st.session_state.pdf_bytes:
 
         st.markdown(
             f"""
-            <a href="{whatsapp_url}" target="_blank">
-                <button style="
-                    width: 100%;
-                    padding: 12px;
-                    background-color: #25D366;
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    cursor: pointer;
-                ">
-                    📱 Open WhatsApp Message
-                </button>
+            <a
+                href="{whatsapp_url}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="receipt-whatsapp-button"
+            >
+                📱 Open WhatsApp Message
             </a>
             """,
             unsafe_allow_html=True,
@@ -2432,7 +2919,6 @@ if st.session_state.pdf_bytes:
             "Download the PDF above, attach it in WhatsApp and send it."
         )
 
-
 # ============================================================
 # RECEIPT HISTORY
 # ============================================================
@@ -2440,38 +2926,272 @@ if st.session_state.pdf_bytes:
 st.divider()
 st.header("📊 Receipt History")
 
+
+# ------------------------------------------------------------
+# REFRESH
+# ------------------------------------------------------------
+
 history_col1, history_col2 = st.columns([1, 1])
 
 with history_col1:
     refresh_history = st.button(
         "🔄 Refresh Receipt History",
         width="stretch",
+        key="refresh_receipt_history",
     )
 
 if refresh_history:
-    get_receipts.clear()
+    clear_receipt_cache()
+    st.rerun()
+
+
+# ------------------------------------------------------------
+# LOAD RECEIPTS
+# ------------------------------------------------------------
 
 receipts_df = get_receipts()
 
+
 if receipts_df.empty:
     st.info("No receipts found in the Google Sheets 'Receipts' worksheet yet.")
+
 else:
+    # --------------------------------------------------------
+    # PREPARE DATA
+    # --------------------------------------------------------
+
     display_df = receipts_df.copy()
 
     if "Amount" in display_df.columns:
         display_df["Amount"] = pd.to_numeric(
-            display_df["Amount"], errors="coerce"
+            display_df["Amount"],
+            errors="coerce",
         ).fillna(0.0)
 
-    st.dataframe(
-        display_df,
-        width="stretch",
-        hide_index=True,
+    # --------------------------------------------------------
+    # SEARCH
+    # --------------------------------------------------------
+
+    search_text = st.text_input(
+        "🔎 Search Receipt History",
+        placeholder=("Search by Receipt No, Name, Phone, House No, Purpose..."),
+        key="receipt_history_search",
     )
+
+    # --------------------------------------------------------
+    # FILTERS
+    # --------------------------------------------------------
+
+    filter_col1, filter_col2, filter_col3 = st.columns([1, 1, 1])
+
+    # --------------------------------------------------------
+    # PURPOSE FILTER
+    # --------------------------------------------------------
+
+    with filter_col1:
+        purpose_options = ["All"]
+
+        if "Purpose" in display_df.columns:
+            purpose_values = display_df["Purpose"].dropna().astype(str).str.strip()
+
+            purpose_options += sorted([
+                value for value in purpose_values.unique() if value
+            ])
+
+        selected_purpose = st.selectbox(
+            "Purpose",
+            purpose_options,
+            key="receipt_history_purpose",
+        )
+
+    # --------------------------------------------------------
+    # PAYMENT MODE FILTER
+    # --------------------------------------------------------
+
+    with filter_col2:
+        payment_options = ["All"]
+
+        if "Payment Mode" in display_df.columns:
+            payment_values = display_df["Payment Mode"].dropna().astype(str).str.strip()
+
+            payment_options += sorted([
+                value for value in payment_values.unique() if value
+            ])
+
+        selected_payment = st.selectbox(
+            "Payment Mode",
+            payment_options,
+            key="receipt_history_payment",
+        )
+
+    # --------------------------------------------------------
+    # NUMBER OF RECEIPTS TO DISPLAY
+    # --------------------------------------------------------
+
+    with filter_col3:
+        rows_to_show = st.selectbox(
+            "Receipts to Display",
+            [25, 50, 100, 250],
+            index=1,
+            key="receipt_history_rows",
+        )
+
+    # --------------------------------------------------------
+    # APPLY SEARCH
+    # --------------------------------------------------------
+
+    filtered_df = display_df.copy()
+
+    if search_text.strip():
+        search_columns = [
+            "Receipt No",
+            "Received From",
+            "House No",
+            "Phone",
+            "Purpose",
+            "Payment Mode",
+        ]
+
+        available_search_columns = [
+            column for column in search_columns if column in filtered_df.columns
+        ]
+
+        search_mask = pd.Series(
+            False,
+            index=filtered_df.index,
+        )
+
+        search_value = search_text.strip().lower()
+
+        for column in available_search_columns:
+            search_mask = search_mask | (
+                filtered_df[column]
+                .fillna("")
+                .astype(str)
+                .str.lower()
+                .str.contains(
+                    search_value,
+                    regex=False,
+                    na=False,
+                )
+            )
+
+        filtered_df = filtered_df[search_mask]
+
+    # --------------------------------------------------------
+    # APPLY PURPOSE FILTER
+    # --------------------------------------------------------
+
+    if selected_purpose != "All" and "Purpose" in filtered_df.columns:
+        filtered_df = filtered_df[
+            filtered_df["Purpose"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .eq(selected_purpose)
+        ]
+
+    # --------------------------------------------------------
+    # APPLY PAYMENT MODE FILTER
+    # --------------------------------------------------------
+
+    if selected_payment != "All" and "Payment Mode" in filtered_df.columns:
+        filtered_df = filtered_df[
+            filtered_df["Payment Mode"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .eq(selected_payment)
+        ]
+
+    # --------------------------------------------------------
+    # SORT — LATEST RECEIPTS FIRST
+    # --------------------------------------------------------
+
+    if "_Parsed Date" in filtered_df.columns:
+        filtered_df = filtered_df.sort_values(
+            "_Parsed Date",
+            ascending=False,
+            na_position="last",
+        )
+
+    elif "Date" in filtered_df.columns:
+        filtered_df["_SortDate"] = pd.to_datetime(
+            filtered_df["Date"],
+            dayfirst=True,
+            errors="coerce",
+        )
+
+        filtered_df = filtered_df.sort_values(
+            "_SortDate",
+            ascending=False,
+            na_position="last",
+        ).drop(columns=["_SortDate"])
+
+    # --------------------------------------------------------
+    # RESULTS SUMMARY
+    # --------------------------------------------------------
+
+    total_matching = len(filtered_df)
+
+    st.caption(
+        f"Showing "
+        f"{min(total_matching, rows_to_show)} "
+        f"of {total_matching} matching receipts"
+    )
+
+    # --------------------------------------------------------
+    # MOBILE-FRIENDLY DISPLAY COLUMNS
+    # --------------------------------------------------------
+
+    history_columns = [
+        "Receipt No",
+        "Date",
+        "Received From",
+        "Amount",
+        "Purpose",
+        "Payment Mode",
+    ]
+
+    available_history_columns = [
+        column for column in history_columns if column in filtered_df.columns
+    ]
+
+    history_display = filtered_df[available_history_columns].head(rows_to_show).copy()
+
+    # --------------------------------------------------------
+    # FORMAT AMOUNT
+    # --------------------------------------------------------
+
+    if "Amount" in history_display.columns:
+        history_display["Amount"] = history_display["Amount"].apply(
+            lambda value: f"₹{value:,.0f}"
+        )
+
+    # --------------------------------------------------------
+    # DISPLAY TABLE
+    # --------------------------------------------------------
+
+    if history_display.empty:
+        st.warning("No receipts match your search/filter.")
+
+    else:
+        st.dataframe(
+            history_display,
+            width="stretch",
+            hide_index=True,
+        )
+
+    # --------------------------------------------------------
+    # DOWNLOAD FULL RECEIPT DATABOOK
+    # --------------------------------------------------------
 
     excel_buffer = BytesIO()
 
-    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+    with pd.ExcelWriter(
+        excel_buffer,
+        engine="openpyxl",
+    ) as writer:
         display_df.to_excel(
             writer,
             index=False,
@@ -2484,10 +3204,9 @@ else:
         "⬇️ Download Receipt Databook",
         data=excel_buffer,
         file_name="Masjid_Sharief_Receipt_Databook.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mime=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         width="stretch",
     )
-
 
 # ============================================================
 # SUMMARY
@@ -2611,6 +3330,16 @@ st.subheader("➕ Add Expense")
 expense_col1, expense_col2 = st.columns(2)
 
 with expense_col1:
+    st.markdown(
+        '<div class="expense-card">',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="expense-section-title">📅 Expense Information</div>',
+        unsafe_allow_html=True,
+    )
+
     expense_date = st.date_input(
         "Expense Date",
         value=datetime.now().date(),
@@ -2661,8 +3390,22 @@ with expense_col1:
             key="expense_particular",
         )
 
+    st.markdown(
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
 with expense_col2:
+    st.markdown(
+        '<div class="expense-card">',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="expense-section-title">💰 Payment Information</div>',
+        unsafe_allow_html=True,
+    )
+
     expense_amount = st.number_input(
         "Expense Amount (₹)",
         min_value=0.0,
@@ -2689,6 +3432,10 @@ with expense_col2:
         key="expense_remarks",
     )
 
+    st.markdown(
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
 save_expense_button = st.button(
     "💾 Save Expense",
@@ -2723,7 +3470,6 @@ if save_expense_button:
         else:
             st.error(f"❌ Could not save expense: {expense_message}")
 
-
 # ============================================================
 # EXPENSE HISTORY
 # ============================================================
@@ -2737,7 +3483,25 @@ if expenses_df.empty:
     st.info("No expenses have been recorded yet.")
 
 else:
+    # --------------------------------------------------------
+    # REFRESH
+    # --------------------------------------------------------
+
+    refresh_expense_history = st.button(
+        "🔄 Refresh Expense History",
+        width="stretch",
+        key="refresh_expense_history",
+    )
+
+    if refresh_expense_history:
+        clear_expense_cache()
+        st.rerun()
+
     display_expenses = expenses_df.copy()
+
+    # --------------------------------------------------------
+    # NORMALIZE COLUMNS
+    # --------------------------------------------------------
 
     if "Amount" in display_expenses.columns:
         display_expenses["Amount"] = pd.to_numeric(
@@ -2745,11 +3509,224 @@ else:
             errors="coerce",
         ).fillna(0.0)
 
+    if "Date" in display_expenses.columns:
+        display_expenses["_Parsed Date"] = pd.to_datetime(
+            display_expenses["Date"],
+            dayfirst=True,
+            errors="coerce",
+        )
+
+    # --------------------------------------------------------
+    # SEARCH
+    # --------------------------------------------------------
+
+    expense_search = (
+        st
+        .text_input(
+            "🔎 Search Expenses",
+            placeholder="Search type, particular, remarks, payment mode...",
+            key="expense_history_search",
+        )
+        .strip()
+        .lower()
+    )
+
+    # --------------------------------------------------------
+    # FILTERS
+    # --------------------------------------------------------
+
+    filter_col1, filter_col2, filter_col3 = st.columns(3)
+
+    with filter_col1:
+        if "Expense Type" in display_expenses.columns:
+            expense_types = sorted(
+                display_expenses["Expense Type"].dropna().astype(str).unique().tolist()
+            )
+
+            selected_expense_type = st.selectbox(
+                "Expense Type",
+                ["All"] + expense_types,
+                key="expense_history_type_filter",
+            )
+        else:
+            selected_expense_type = "All"
+
+    with filter_col2:
+        if "Payment Mode" in display_expenses.columns:
+            payment_modes = sorted(
+                display_expenses["Payment Mode"].dropna().astype(str).unique().tolist()
+            )
+
+            selected_payment_mode = st.selectbox(
+                "Payment Mode",
+                ["All"] + payment_modes,
+                key="expense_history_payment_filter",
+            )
+        else:
+            selected_payment_mode = "All"
+
+    with filter_col3:
+        if "_Parsed Date" in display_expenses.columns:
+            valid_dates = display_expenses["_Parsed Date"].dropna()
+
+            if not valid_dates.empty:
+                month_options = sorted(
+                    valid_dates.dt.strftime("%B %Y").unique().tolist(),
+                    key=lambda x: pd.to_datetime(x, format="%B %Y"),
+                    reverse=True,
+                )
+
+                selected_expense_month = st.selectbox(
+                    "Month",
+                    ["All"] + month_options,
+                    key="expense_history_month_filter",
+                )
+            else:
+                selected_expense_month = "All"
+        else:
+            selected_expense_month = "All"
+
+    # --------------------------------------------------------
+    # APPLY SEARCH
+    # --------------------------------------------------------
+
+    filtered_expenses = display_expenses.copy()
+
+    if expense_search:
+        searchable_columns = [
+            column
+            for column in [
+                "Date",
+                "Expense Type",
+                "Particular",
+                "Payment Mode",
+                "Remarks",
+                "Name of Person Who Died",
+            ]
+            if column in filtered_expenses.columns
+        ]
+
+        if searchable_columns:
+            search_mask = (
+                filtered_expenses[searchable_columns]
+                .fillna("")
+                .astype(str)
+                .apply(
+                    lambda column: column.str.lower().str.contains(
+                        expense_search,
+                        regex=False,
+                    )
+                )
+                .any(axis=1)
+            )
+
+            filtered_expenses = filtered_expenses[search_mask]
+
+    # --------------------------------------------------------
+    # APPLY EXPENSE TYPE FILTER
+    # --------------------------------------------------------
+
+    if selected_expense_type != "All" and "Expense Type" in filtered_expenses.columns:
+        filtered_expenses = filtered_expenses[
+            filtered_expenses["Expense Type"].astype(str).eq(selected_expense_type)
+        ]
+
+    # --------------------------------------------------------
+    # APPLY PAYMENT MODE FILTER
+    # --------------------------------------------------------
+
+    if selected_payment_mode != "All" and "Payment Mode" in filtered_expenses.columns:
+        filtered_expenses = filtered_expenses[
+            filtered_expenses["Payment Mode"].astype(str).eq(selected_payment_mode)
+        ]
+
+    # --------------------------------------------------------
+    # APPLY MONTH FILTER
+    # --------------------------------------------------------
+
+    if selected_expense_month != "All" and "_Parsed Date" in filtered_expenses.columns:
+        filtered_expenses = filtered_expenses[
+            filtered_expenses["_Parsed Date"]
+            .dt.strftime("%B %Y")
+            .eq(selected_expense_month)
+        ]
+
+    # --------------------------------------------------------
+    # LATEST FIRST
+    # --------------------------------------------------------
+
+    if "_Parsed Date" in filtered_expenses.columns:
+        filtered_expenses = filtered_expenses.sort_values(
+            "_Parsed Date",
+            ascending=False,
+            na_position="last",
+        )
+
+    # --------------------------------------------------------
+    # RESULT COUNT + ROW LIMIT
+    # --------------------------------------------------------
+
+    result_col1, result_col2 = st.columns([2, 1])
+
+    with result_col1:
+        st.caption(f"Showing {len(filtered_expenses):,} matching expense(s)")
+
+    with result_col2:
+        rows_to_display = st.selectbox(
+            "Rows",
+            [25, 50, 100, 250],
+            index=0,
+            key="expense_history_rows",
+        )
+
+    # --------------------------------------------------------
+    # DISPLAY
+    # --------------------------------------------------------
+
+    visible_expenses = filtered_expenses.head(rows_to_display).copy()
+
+    if "_Parsed Date" in visible_expenses.columns:
+        visible_expenses = visible_expenses.drop(columns=["_Parsed Date"])
+
     st.dataframe(
-        display_expenses,
+        visible_expenses,
         width="stretch",
         hide_index=True,
     )
+
+    # --------------------------------------------------------
+    # EXCEL EXPORT
+    # --------------------------------------------------------
+
+    if not filtered_expenses.empty:
+        export_expenses = filtered_expenses.copy()
+
+        if "_Parsed Date" in export_expenses.columns:
+            export_expenses = export_expenses.drop(columns=["_Parsed Date"])
+
+        excel_buffer = BytesIO()
+
+        with pd.ExcelWriter(
+            excel_buffer,
+            engine="openpyxl",
+        ) as writer:
+            export_expenses.to_excel(
+                writer,
+                index=False,
+                sheet_name="Expense History",
+            )
+
+        excel_buffer.seek(0)
+
+        st.download_button(
+            "📥 Download Expense History",
+            data=excel_buffer,
+            file_name="Masjid_Expense_History.xlsx",
+            mime=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            width="stretch",
+            key="download_masjid_expense_history",
+        )
+
 
 # ============================================================
 # MASJID MONTHLY STATEMENT
@@ -2902,6 +3879,59 @@ additions_during_month = (
 )
 
 # ============================================================
+# INCOME SUMMARY
+# ============================================================
+
+st.markdown(
+    '<div class="account-card">',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    '<div class="account-section-title">📥 Income</div>',
+    unsafe_allow_html=True,
+)
+
+income_col1, income_col2 = st.columns(2)
+
+with income_col1:
+    st.metric(
+        "Monthly Contribution",
+        f"₹{monthly_contribution:,.2f}",
+    )
+
+    st.metric(
+        "Friday Collections",
+        f"₹{friday_idd:,.2f}",
+    )
+
+    st.metric(
+        "Donation",
+        f"₹{donation:,.2f}",
+    )
+
+with income_col2:
+    st.metric(
+        "Recovery from Imam Sahib",
+        f"₹{recovery:,.2f}",
+    )
+
+    st.metric(
+        "Fire Wood Contribution",
+        f"₹{fire_wood:,.2f}",
+    )
+
+    st.metric(
+        "Total Income",
+        f"₹{additions_during_month:,.2f}",
+    )
+
+st.markdown(
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+# ============================================================
 # PAYMENT MODE WISE INCOME
 # ============================================================
 
@@ -2985,6 +4015,59 @@ total_expenses = (
 # PAYMENT MODE WISE EXPENSES
 # ============================================================
 
+# ============================================================
+# EXPENSE SUMMARY
+# ============================================================
+
+st.markdown(
+    '<div class="account-card">',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    '<div class="account-section-title">📤 Expenses</div>',
+    unsafe_allow_html=True,
+)
+
+expense_col1, expense_col2 = st.columns(2)
+
+with expense_col1:
+    st.metric(
+        "Salary Paid to Khadim",
+        f"₹{salary_khadim:,.2f}",
+    )
+
+    st.metric(
+        "Salary Paid to Imam Sahib",
+        f"₹{salary_imam:,.2f}",
+    )
+
+    st.metric(
+        "Masjid Electricity",
+        f"₹{masjid_electricity:,.2f}",
+    )
+
+with expense_col2:
+    st.metric(
+        "Darasgah Electricity",
+        f"₹{darasgah_electricity:,.2f}",
+    )
+
+    st.metric(
+        "Other Expenses",
+        f"₹{other_expenses:,.2f}",
+    )
+
+    st.metric(
+        "Total Expenses",
+        f"₹{total_expenses:,.2f}",
+    )
+
+st.markdown(
+    "</div>",
+    unsafe_allow_html=True,
+)
+
 monthly_expenses_df = get_monthly_expenses(selected_period)
 
 bank_expenses = 0.0
@@ -3032,12 +4115,18 @@ st.markdown("---")
 st.subheader(f"💰 Closing Balances — {selected_month_text}")
 
 # ============================================================
-# BANK TRANSFERS
+# BANK MOVEMENT
 # ============================================================
 
-st.markdown("---")
+st.markdown(
+    '<div class="account-card">',
+    unsafe_allow_html=True,
+)
 
-st.subheader(f"🏦 Bank Deposits / Withdrawals — {selected_month_text}")
+st.markdown(
+    '<div class="account-section-title">🏦 Bank Movement</div>',
+    unsafe_allow_html=True,
+)
 
 bank_transfer_col1, bank_transfer_col2 = st.columns(2)
 
@@ -3060,6 +4149,13 @@ with bank_transfer_col2:
         key=f"withdrawals_debits_{selected_month_text}",
         help="Cash withdrawn from the bank account.",
     )
+
+st.markdown(
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+
 # ------------------------------------------------------------
 # Separate Cash and Bank movements
 # ------------------------------------------------------------
@@ -3091,8 +4187,21 @@ closing_cash = (
 )
 
 
-balance_col1, balance_col2 = st.columns(2)
+# ============================================================
+# CALCULATED CLOSING BALANCES
+# ============================================================
 
+st.markdown(
+    '<div class="account-card">',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    '<div class="account-section-title">📊 Closing Balances</div>',
+    unsafe_allow_html=True,
+)
+
+balance_col1, balance_col2 = st.columns(2)
 
 with balance_col1:
     st.number_input(
@@ -3104,7 +4213,6 @@ with balance_col1:
         key="calculated_closing_bank",
     )
 
-
 with balance_col2:
     st.number_input(
         "Cash in Hand",
@@ -3114,6 +4222,14 @@ with balance_col2:
         disabled=True,
         key="calculated_closing_cash",
     )
+
+
+st.markdown(
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+
 # ============================================================
 # CALCULATE STATEMENT TOTALS
 # ============================================================
@@ -3123,7 +4239,6 @@ total_resources = opening_cash + additions_during_month + opening_bank
 closing_resources = total_expenses + closing_bank + closing_cash
 
 difference = total_resources - closing_resources
-
 
 # ============================================================
 # DISPLAY STATEMENT
@@ -3264,7 +4379,6 @@ with expense_display_col:
         f"₹{closing_resources:,.2f}",
     )
 
-
 # ============================================================
 # BALANCE CHECK
 # ============================================================
@@ -3392,7 +4506,6 @@ if save_month_button:
 
         st.error(f"Masjid Monthly: {statement_message}")
 
-
 # ============================================================
 # SAVED MONTHLY ACCOUNTS HISTORY
 # ============================================================
@@ -3409,7 +4522,10 @@ if saved_accounts.empty:
 else:
     display_accounts = saved_accounts.copy()
 
-    # Sort newest month first
+    # --------------------------------------------------------
+    # SORT NEWEST MONTH FIRST
+    # --------------------------------------------------------
+
     if "Month" in display_accounts.columns:
         display_accounts["_SortMonth"] = pd.to_datetime(
             display_accounts["Month"],
@@ -3422,7 +4538,10 @@ else:
             ascending=False,
         ).drop(columns=["_SortMonth"])
 
-    # Format monetary columns
+    # --------------------------------------------------------
+    # CLEAN NUMERIC VALUES
+    # --------------------------------------------------------
+
     for column in MONTHLY_ACCOUNT_COLUMNS:
         if column != "Month" and column in display_accounts.columns:
             display_accounts[column] = pd.to_numeric(
@@ -3430,8 +4549,79 @@ else:
                 errors="coerce",
             ).fillna(0.0)
 
-    st.dataframe(
-        display_accounts,
-        width="stretch",
-        hide_index=True,
-    )
+    # --------------------------------------------------------
+    # RESPONSIVE MONTH-BY-MONTH HISTORY
+    # --------------------------------------------------------
+
+    for index, row in display_accounts.iterrows():
+        month_name = str(row.get("Month", "Unknown Month")).strip()
+
+        closing_balance = float(row.get("Closing Balance", 0.0))
+
+        bank_balance = float(row.get("Bank Balance", 0.0))
+
+        cash_in_hand = float(row.get("Cash in Hand", 0.0))
+
+        with st.expander(
+            f"📅 {month_name}  •  Closing ₹{closing_balance:,.2f}",
+            expanded=(index == display_accounts.index[0]),
+        ):
+            # ------------------------------------------------
+            # QUICK SUMMARY
+            # ------------------------------------------------
+
+            summary_col1, summary_col2, summary_col3 = st.columns(3)
+
+            with summary_col1:
+                st.metric(
+                    "🏦 Bank Balance",
+                    f"₹{bank_balance:,.2f}",
+                )
+
+            with summary_col2:
+                st.metric(
+                    "💵 Cash in Hand",
+                    f"₹{cash_in_hand:,.2f}",
+                )
+
+            with summary_col3:
+                st.metric(
+                    "📊 Closing Balance",
+                    f"₹{closing_balance:,.2f}",
+                )
+
+            st.markdown("---")
+
+            # ------------------------------------------------
+            # FULL MONTH DETAILS
+            # ------------------------------------------------
+
+            history_rows = []
+
+            for column in MONTHLY_ACCOUNT_COLUMNS:
+                if column == "Month":
+                    continue
+
+                if column not in row.index:
+                    continue
+
+                value = row[column]
+
+                try:
+                    value = float(value)
+                    formatted_value = f"₹{value:,.2f}"
+                except (TypeError, ValueError):
+                    formatted_value = str(value)
+
+                history_rows.append([column, formatted_value])
+
+            history_df = pd.DataFrame(
+                history_rows,
+                columns=["Particulars", "Amount"],
+            )
+
+            st.dataframe(
+                history_df,
+                width="stretch",
+                hide_index=True,
+            )
