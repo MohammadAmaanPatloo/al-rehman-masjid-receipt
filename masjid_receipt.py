@@ -92,6 +92,32 @@ st.markdown(
     [data-testid="InputInstructions"] {
         display: none !important;
     }
+    
+    /* =========================================================
+   MAIN APP TITLE
+   ========================================================= */
+
+    .app-main-title {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+
+        font-size: 2.5rem !important;
+        line-height: 1.2 !important;
+        font-weight: 700 !important;
+
+        margin-top: 0 !important;
+        margin-bottom: 0.5rem !important;
+        padding: 0 !important;
+
+        white-space: normal !important;
+        overflow: visible !important;
+        overflow-wrap: break-word !important;
+        word-break: normal !important;
+
+        position: static !important;
+        transform: none !important;
+    }
 
     .receipt-card {
         padding: 0;
@@ -196,7 +222,26 @@ st.markdown(
        ========================================================= */
 
     @media (max-width: 768px) {
+        
+        .app-main-title {
+            font-size: 1.55rem !important;
+            line-height: 1.3 !important;
 
+            width: 100% !important;
+            max-width: 100% !important;
+
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.75rem !important;
+            padding: 0 !important;
+
+            white-space: normal !important;
+            overflow: visible !important;
+            overflow-wrap: break-word !important;
+            word-break: normal !important;
+
+            position: static !important;
+            transform: none !important;
+        }
         /* -----------------------------------------------------
            Main page spacing
            ----------------------------------------------------- */
@@ -341,6 +386,26 @@ st.markdown(
         .block-container {
             padding-left: 0.55rem;
             padding-right: 0.55rem;
+        }
+        
+        .app-main-title {
+            font-size: 1.4rem !important;
+            line-height: 1.3 !important;
+
+            width: 100% !important;
+            max-width: 100% !important;
+
+            margin-top: 0.2rem !important;
+            margin-bottom: 0.65rem !important;
+            padding: 0 !important;
+
+            white-space: normal !important;
+            overflow: visible !important;
+            overflow-wrap: break-word !important;
+            word-break: normal !important;
+
+            position: static !important;
+            transform: none !important;
         }
 
         h1 {
@@ -2213,12 +2278,16 @@ if "generated_receipt_no" not in st.session_state:
 # HEADER
 # ============================================================
 
-st.title("🕌 Al Rehman Masjid Receipt System")
-st.caption(
-    "Digital receipt generation, Google Sheets records and printable PDF receipts"
+st.markdown(
+    """
+    <div class="app-main-title">
+        🕌 Al Rehman Masjid Receipt System
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-
+st.caption("Masjid Digital Receipt & Accounts System")
 # ============================================================
 # SIDEBAR - MASJID + RECEIPT SETTINGS
 # ============================================================
@@ -4421,7 +4490,7 @@ if save_month_button:
 
 st.markdown("---")
 
-st.subheader("📚 Saved Monthly Accounts")
+st.subheader("📚 Saved Masjid Monthly Accounts")
 
 saved_accounts = get_monthly_accounts()
 
