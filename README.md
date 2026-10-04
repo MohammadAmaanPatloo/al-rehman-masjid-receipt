@@ -1,1 +1,1 @@
-MAPOS - AL Rehman Masjid Digital Receipt & Accounts System
+MAPOS - Masjid Digital Receipt & Accounts System
