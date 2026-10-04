@@ -34,6 +34,21 @@ st.set_page_config(
 )
 
 # ============================================================
+# HIDE STREAMLIT INPUT INSTRUCTIONS
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+    [data-testid="InputInstructions"] {
+        display: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ============================================================
 # PASSWORD PROTECTION
 # ============================================================
 
@@ -85,399 +100,771 @@ st.markdown(
     """
     <style>
 
-    /* =========================================================
-       GLOBAL UI
-       ========================================================= */
-
-    [data-testid="InputInstructions"] {
-        display: none !important;
-    }
-    
-    /* =========================================================
-   MAIN APP TITLE
+/* =========================================================
+   GLOBAL RESET / STREAMLIT CONTAINER SAFETY
    ========================================================= */
 
-    .app-main-title {
-        display: block !important;
+[data-testid="InputInstructions"] {
+    display: none !important;
+}
+
+/*
+   Prevent Streamlit containers from clipping custom HTML.
+   This is especially important for the main application title.
+*/
+
+[data-testid="stMarkdown"],
+[data-testid="stMarkdownContainer"] {
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+[data-testid="stMarkdown"] > div,
+[data-testid="stMarkdownContainer"] > div {
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+
+/* =========================================================
+   MAIN APP CONTAINER
+   ========================================================= */
+
+.block-container {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    padding-top: 2rem !important;
+    padding-bottom: 3rem !important;
+
+    overflow: visible !important;
+}
+
+
+/* =========================================================
+   MAIN APPLICATION TITLE
+   ========================================================= */
+
+/*
+   IMPORTANT:
+   The title is custom HTML rather than st.title().
+   We explicitly control height, overflow and line wrapping.
+*/
+
+.app-main-title {
+    display: block !important;
+
+    width: 100% !important;
+    max-width: 100% !important;
+
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    box-sizing: border-box !important;
+
+    margin: 0 0 0.5rem 0 !important;
+
+    padding: 0.15rem 0 0.1rem 0 !important;
+
+    font-size: 2.5rem !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+
+    white-space: normal !important;
+
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+
+    overflow-wrap: anywhere !important;
+    word-wrap: break-word !important;
+    word-break: normal !important;
+
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+
+/*
+   Target the Streamlit wrapper containing the title.
+   This prevents the wrapper itself from cutting the title.
+*/
+
+[data-testid="stMarkdown"]:has(.app-main-title),
+[data-testid="stMarkdownContainer"]:has(.app-main-title) {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+
+/*
+   Direct parent of the title.
+*/
+
+[data-testid="stMarkdown"]:has(.app-main-title) > div,
+[data-testid="stMarkdownContainer"]:has(.app-main-title) > div {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    overflow: visible !important;
+
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+
+/* =========================================================
+   SUBTITLE / CAPTION UNDER MAIN TITLE
+   ========================================================= */
+
+[data-testid="stMarkdown"]:has(.app-main-title)
+~ [data-testid="stCaptionContainer"] {
+    margin-top: 0 !important;
+}
+
+
+/* =========================================================
+   RECEIPT CARD
+   ========================================================= */
+
+.receipt-card {
+    display: block !important;
+
+    width: 100% !important;
+
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    padding: 0 !important;
+
+    border: none !important;
+    border-radius: 0 !important;
+
+    margin: 0 0 12px 0 !important;
+
+    overflow: visible !important;
+
+    box-sizing: border-box !important;
+}
+
+.receipt-section-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+
+    line-height: 1.3;
+}
+
+
+/* =========================================================
+   EXPENSE CARD
+   ========================================================= */
+
+.expense-card {
+    padding: 0;
+
+    border: none;
+    border-radius: 0;
+
+    margin-bottom: 12px;
+}
+
+.expense-section-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+
+    line-height: 1.3;
+}
+
+
+/* =========================================================
+   MONTHLY ACCOUNTS
+   ========================================================= */
+
+.account-card {
+    padding: 0;
+
+    border: none;
+    border-radius: 0;
+
+    margin-bottom: 12px;
+}
+
+.account-section-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+
+    line-height: 1.3;
+}
+
+.account-total {
+    padding: 10px 12px;
+
+    border-radius: 8px;
+
+    font-weight: 600;
+
+    margin-top: 8px;
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.stButton > button,
+.stDownloadButton > button {
+
+    min-height: 44px;
+
+    border-radius: 8px;
+
+    font-weight: 600;
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+
+input,
+textarea,
+[data-baseweb="select"] {
+    font-size: 16px !important;
+}
+
+
+/* =========================================================
+   METRICS
+   ========================================================= */
+
+[data-testid="stMetric"] {
+    padding: 8px;
+}
+
+
+/* =========================================================
+   RECEIPT WHATSAPP BUTTON
+   ========================================================= */
+
+.receipt-whatsapp-button {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+
+    min-height: 48px;
+
+    padding: 12px 16px;
+
+    background-color: #25D366;
+
+    color: #ffffff !important;
+
+    border-radius: 8px;
+
+    font-size: 16px;
+    font-weight: 600;
+
+    text-align: center;
+
+    text-decoration: none !important;
+
+    box-sizing: border-box;
+}
+
+.receipt-whatsapp-button:hover {
+    background-color: #1DA851;
+
+    color: #ffffff !important;
+}
+
+
+/* =========================================================
+   MOBILE — 768px
+   ========================================================= */
+
+@media (max-width: 768px) {
+
+    /* -----------------------------------------------------
+       MAIN APP CONTAINER
+       ----------------------------------------------------- */
+
+    .block-container {
+
         width: 100% !important;
         max-width: 100% !important;
 
-        font-size: 2.5rem !important;
-        line-height: 1.2 !important;
-        font-weight: 700 !important;
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+
+        overflow: visible !important;
+    }
+
+
+    /* -----------------------------------------------------
+       MAIN APP TITLE
+       ----------------------------------------------------- */
+
+    .app-main-title {
+
+        display: block !important;
+
+        width: 100% !important;
+        max-width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+
+        box-sizing: border-box !important;
 
         margin-top: 0 !important;
-        margin-bottom: 0.5rem !important;
-        padding: 0 !important;
+        margin-bottom: 0.6rem !important;
+
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.15rem !important;
+
+        font-size: 1.55rem !important;
+        line-height: 1.35 !important;
+
+        font-weight: 700 !important;
 
         white-space: normal !important;
+
         overflow: visible !important;
-        overflow-wrap: break-word !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+
+        overflow-wrap: anywhere !important;
+        word-wrap: break-word !important;
         word-break: normal !important;
 
-        position: static !important;
+        position: relative !important;
+
         transform: none !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
     }
+
+
+    /*
+       VERY IMPORTANT:
+       Keep every wrapper around the title open.
+    */
+
+    [data-testid="stMarkdown"]:has(.app-main-title),
+    [data-testid="stMarkdownContainer"]:has(.app-main-title),
+
+    [data-testid="stMarkdown"]:has(.app-main-title) > div,
+    [data-testid="stMarkdownContainer"]:has(.app-main-title) > div {
+
+        width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+
+        overflow: visible !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+
+    /* -----------------------------------------------------
+       GENERAL HEADINGS
+       ----------------------------------------------------- */
+
+    h1 {
+        font-size: 1.55rem !important;
+
+        line-height: 1.3 !important;
+
+        margin-top: 0.25rem !important;
+        margin-bottom: 0.75rem !important;
+
+        padding-top: 0.15rem !important;
+
+        height: auto !important;
+        max-height: none !important;
+
+        overflow: visible !important;
+
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+
+    h2 {
+        font-size: 1.3rem !important;
+        line-height: 1.25 !important;
+    }
+
+    h3 {
+        font-size: 1.15rem !important;
+        line-height: 1.25 !important;
+    }
+
+
+    /* -----------------------------------------------------
+       BUTTONS
+       ----------------------------------------------------- */
+
+    .stButton > button,
+    .stDownloadButton > button {
+
+        width: 100% !important;
+
+        min-height: 46px !important;
+
+        font-size: 15px !important;
+    }
+
+
+    /* -----------------------------------------------------
+       FORM CONTROLS
+       ----------------------------------------------------- */
+
+    input,
+    textarea,
+    [data-baseweb="select"] {
+
+        font-size: 16px !important;
+    }
+
+
+    /* -----------------------------------------------------
+       VERTICAL SPACING
+       ----------------------------------------------------- */
+
+    [data-testid="stVerticalBlock"] {
+        gap: 0.65rem;
+    }
+
+
+    /* -----------------------------------------------------
+       METRICS
+       ----------------------------------------------------- */
+
+    [data-testid="stMetric"] {
+        padding: 5px;
+
+        margin-bottom: 8px;
+    }
+
+    [data-testid="stMetricValue"] {
+        font-size: 1.15rem !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        font-size: 0.8rem !important;
+    }
+
+
+    /* -----------------------------------------------------
+       DATAFRAMES
+       ----------------------------------------------------- */
+
+    [data-testid="stDataFrame"] {
+        font-size: 12px;
+    }
+
+
+    /* -----------------------------------------------------
+       DIVIDERS
+       ----------------------------------------------------- */
+
+    hr {
+        margin-top: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+
+    /* -----------------------------------------------------
+       SIDEBAR
+       ----------------------------------------------------- */
+
+    section[data-testid="stSidebar"] {
+
+        width: 85vw !important;
+        max-width: 340px !important;
+    }
+
+
+    /* -----------------------------------------------------
+       RECEIPT CARD
+       ----------------------------------------------------- */
+
+@media (max-width: 768px) {
 
     .receipt-card {
-        padding: 0;
-        border: none;
-        border-radius: 0;
-        margin-bottom: 12px;
-    }    
-    
+        display: block !important;
+
+        width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+
+        padding: 0 !important;
+
+        border: none !important;
+        border-radius: 0 !important;
+
+        margin-bottom: 10px !important;
+
+        overflow: visible !important;
+    }
+}
+    .receipt-section-title {
+
+        font-size: 1rem;
+
+        margin-bottom: 0.35rem;
+    }
+
+
+    /* -----------------------------------------------------
+       EXPENSE CARD
+       ----------------------------------------------------- */
+
     .expense-card {
+
         padding: 0;
-        border: none;
-        border-radius: 0;
-        margin-bottom: 12px;
-    }
-    
-    /* ============================================================
-    MONTHLY ACCOUNTS
-    ============================================================ */
 
-    .account-card {
-        padding: 0;
-        border: none;
-        border-radius: 0;
-        margin-bottom: 12px;
-    }
-
-    .account-section-title {
-        font-size: 1.05rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-    }
-
-    .account-total {
-        padding: 10px 12px;
-        border-radius: 8px;
-        font-weight: 600;
-        margin-top: 8px;
-    }
-
-    @media (max-width: 768px) {
-
-        .account-card {
-            padding: 0;
-            border: none;
-            border-radius: 0;
-            margin-bottom: 10px;
-        }
-
-        .account-section-title {
-            font-size: 1rem;
-            margin-bottom: 0.35rem;
-        }
-
-        .account-total {
-            padding: 9px 10px;
-        }
+        margin-bottom: 10px;
     }
 
     .expense-section-title {
-        font-size: 1.05rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-    }
 
-    @media (max-width: 768px) {
-        .expense-card {
-            padding: 0;
-            border: none;
-            border-radius: 0;
-            margin-bottom: 10px;
-        }
+        font-size: 1rem;
 
-        .expense-section-title {
-            font-size: 1rem;
-            margin-bottom: 0.35rem;
-        }
-    }
-
-    .receipt-section-title {
-        font-size: 1.05rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-    }
-
-    @media (max-width: 768px) {
-        .receipt-card {
-            padding: 0;
-            border: none;
-            border-radius: 0;
-            margin-bottom: 10px;
-        }
-
-        .receipt-section-title {
-            font-size: 1rem;
-            margin-bottom: 0.35rem;
-        }
+        margin-bottom: 0.35rem;
     }
 
 
-    /* =========================================================
-       MOBILE
-       ========================================================= */
+    /* -----------------------------------------------------
+       MONTHLY ACCOUNT CARD
+       ----------------------------------------------------- */
 
-    @media (max-width: 768px) {
-        
-        .app-main-title {
-            font-size: 1.55rem !important;
-            line-height: 1.3 !important;
+    .account-card {
 
-            width: 100% !important;
-            max-width: 100% !important;
+        padding: 0;
 
-            margin-top: 0.25rem !important;
-            margin-bottom: 0.75rem !important;
-            padding: 0 !important;
+        margin-bottom: 10px;
+    }
 
-            white-space: normal !important;
-            overflow: visible !important;
-            overflow-wrap: break-word !important;
-            word-break: normal !important;
+    .account-section-title {
 
-            position: static !important;
-            transform: none !important;
-        }
-        /* -----------------------------------------------------
-           Main page spacing
-           ----------------------------------------------------- */
+        font-size: 1rem;
 
-        .block-container {
-            padding-left: 0.75rem;
-            padding-right: 0.75rem;
-            padding-top: 0.75rem;
-            padding-bottom: 2rem;
-        }
+        margin-bottom: 0.35rem;
+    }
 
+    .account-total {
 
-        /* -----------------------------------------------------
-           Headings
-           ----------------------------------------------------- */
-
-        h1 {
-            font-size: 1.55rem !important;
-            line-height: 1.3 !important;
-            margin-top: 0.25rem !important;
-            margin-bottom: 0.75rem !important;
-            padding-top: 0.15rem !important;
-            overflow: visible !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
-        }
-
-        h2 {
-            font-size: 1.3rem !important;
-            line-height: 1.25 !important;
-        }
-
-        h3 {
-            font-size: 1.15rem !important;
-            line-height: 1.25 !important;
-        }
-
-
-        /* -----------------------------------------------------
-           Buttons
-           ----------------------------------------------------- */
-
-        .stButton > button,
-        .stDownloadButton > button {
-            width: 100%;
-            min-height: 46px;
-            font-size: 15px;
-        }
-
-
-        /* -----------------------------------------------------
-           Inputs
-           
-           16px prevents automatic zooming on many phones.
-           ----------------------------------------------------- */
-
-        input,
-        textarea,
-        [data-baseweb="select"] {
-            font-size: 16px !important;
-        }
-
-
-        /* -----------------------------------------------------
-           Reduce excessive vertical spacing
-           ----------------------------------------------------- */
-
-        [data-testid="stVerticalBlock"] {
-            gap: 0.65rem;
-        }
-
-
-        /* -----------------------------------------------------
-           Metrics
-           ----------------------------------------------------- */
-
-        [data-testid="stMetric"] {
-            padding: 5px;
-        }
-
-        [data-testid="stMetricValue"] {
-            font-size: 1.15rem !important;
-        }
-
-        [data-testid="stMetricLabel"] {
-            font-size: 0.8rem !important;
-        }
-
-        [data-testid="stMetric"] {
-            padding: 5px;
-            margin-bottom: 8px;
-        }
-
-        /* -----------------------------------------------------
-        Dataframes / tables
-        ----------------------------------------------------- */
-
-        [data-testid="stDataFrame"] {
-            font-size: 12px;
-        }
-
-
-
-
-        /* -----------------------------------------------------
-           Dividers
-           ----------------------------------------------------- */
-
-        hr {
-            margin-top: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
-
-
-        /* -----------------------------------------------------
-           Sidebar
-           ----------------------------------------------------- */
-
-        section[data-testid="stSidebar"] {
-            width: 85vw !important;
-            max-width: 340px !important;
-        }
-
-
-        /* -----------------------------------------------------
-           Receipt card
-           ----------------------------------------------------- */
-
-        .receipt-card {
-            padding: 12px;
-            border-radius: 8px;
-        }
+        padding: 9px 10px;
     }
 
 
-    /* =========================================================
-       SMALL PHONES
-       ========================================================= */
-
-    @media (max-width: 480px) {
-
-        .block-container {
-            padding-left: 0.55rem;
-            padding-right: 0.55rem;
-        }
-        
-        .app-main-title {
-            font-size: 1.4rem !important;
-            line-height: 1.3 !important;
-
-            width: 100% !important;
-            max-width: 100% !important;
-
-            margin-top: 0.2rem !important;
-            margin-bottom: 0.65rem !important;
-            padding: 0 !important;
-
-            white-space: normal !important;
-            overflow: visible !important;
-            overflow-wrap: break-word !important;
-            word-break: normal !important;
-
-            position: static !important;
-            transform: none !important;
-        }
-
-        h1 {
-            font-size: 1.4rem !important;
-            line-height: 1.3 !important;
-            margin-top: 0.2rem !important;
-            margin-bottom: 0.65rem !important;
-            padding-top: 0.1rem !important;
-            overflow: visible !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
-        }
-
-        h2 {
-            font-size: 1.2rem !important;
-        }
-
-        h3 {
-            font-size: 1.05rem !important;
-        }
-
-
-        [data-testid="stMetricValue"] {
-            font-size: 1rem !important;
-        }
-
-        [data-testid="stMetricLabel"] {
-            font-size: 0.75rem !important;
-        }
-
-
-        .stButton > button,
-        .stDownloadButton > button {
-            min-height: 48px;
-            font-size: 14px;
-        }
-    }
-    /* =========================================================
-    RECEIPT ACTION BUTTONS
-    ========================================================= */
+    /* -----------------------------------------------------
+       WHATSAPP BUTTON
+       ----------------------------------------------------- */
 
     .receipt-whatsapp-button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        min-height: 48px;
-        padding: 12px 16px;
-        background-color: #25D366;
-        color: #ffffff !important;
-        border-radius: 8px;
-        font-size: 16px;
-        font-weight: 600;
-        text-align: center;
-        text-decoration: none !important;
-        box-sizing: border-box;
+
+        min-height: 50px;
+
+        font-size: 15px;
+    }
+}
+
+
+/* =========================================================
+   SMALL PHONES — 480px
+   ========================================================= */
+
+@media (max-width: 480px) {
+
+    .block-container {
+
+        padding-left: 0.55rem !important;
+        padding-right: 0.55rem !important;
+
+        padding-top: 0.85rem !important;
+        padding-bottom: 2rem !important;
     }
 
-    .receipt-whatsapp-button:hover {
-        background-color: #1DA851;
-        color: #ffffff !important;
+
+    /* -----------------------------------------------------
+       MAIN TITLE
+       ----------------------------------------------------- */
+
+    .app-main-title {
+
+        width: 100% !important;
+        max-width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.15rem !important;
+
+        margin-top: 0 !important;
+        margin-bottom: 0.55rem !important;
+
+        font-size: 1.4rem !important;
+        line-height: 1.4 !important;
+
+        font-weight: 700 !important;
+
+        white-space: normal !important;
+
+        overflow: visible !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+
+        overflow-wrap: anywhere !important;
+        word-wrap: break-word !important;
+        word-break: normal !important;
+
+        position: relative !important;
+
+        transform: none !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 
-    @media (max-width: 480px) {
-        .receipt-whatsapp-button {
-            min-height: 50px;
-            font-size: 15px;
-        }
+
+    /*
+       Extra protection against the exact clipping
+       seen in the screenshots.
+    */
+
+    [data-testid="stMarkdown"]:has(.app-main-title),
+    [data-testid="stMarkdownContainer"]:has(.app-main-title),
+
+    [data-testid="stMarkdown"]:has(.app-main-title) > div,
+    [data-testid="stMarkdownContainer"]:has(.app-main-title) > div {
+
+        height: auto !important;
+
+        min-height: 0 !important;
+
+        max-height: none !important;
+
+        overflow: visible !important;
+
+        margin: 0 !important;
+
+        padding: 0 !important;
     }
 
-    </style>
-    """,
+
+    /* -----------------------------------------------------
+       OTHER HEADINGS
+       ----------------------------------------------------- */
+
+    h1 {
+
+        font-size: 1.4rem !important;
+
+        line-height: 1.35 !important;
+
+        margin-top: 0.2rem !important;
+        margin-bottom: 0.65rem !important;
+
+        padding-top: 0.1rem !important;
+
+        height: auto !important;
+        max-height: none !important;
+
+        overflow: visible !important;
+
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+
+    h2 {
+        font-size: 1.2rem !important;
+    }
+
+    h3 {
+        font-size: 1.05rem !important;
+    }
+
+
+    /* -----------------------------------------------------
+       METRICS
+       ----------------------------------------------------- */
+
+    [data-testid="stMetricValue"] {
+        font-size: 1rem !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        font-size: 0.75rem !important;
+    }
+
+
+    /* -----------------------------------------------------
+       BUTTONS
+       ----------------------------------------------------- */
+
+    .stButton > button,
+    .stDownloadButton > button {
+
+        min-height: 48px !important;
+
+        font-size: 14px !important;
+    }
+}
+
+</style>
+""",
     unsafe_allow_html=True,
 )
 # ============================================================
