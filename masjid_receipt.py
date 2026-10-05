@@ -1889,9 +1889,9 @@ def generate_receipt_pdf(
         [
             Paragraph("<b>Received From</b>", normal),
             Paragraph(
-                received_from
-                if received_from.strip().lower() == "Jamaat"
-                else f"Mr. {received_from}",
+                received_from.strip()
+                if received_from.strip().lower() == "jamaat"
+                else f"Mr. {received_from.strip()}",
                 normal,
             ),
             Paragraph(
@@ -3368,18 +3368,10 @@ if st.session_state.pdf_bytes:
 
         whatsapp_url = f"https://wa.me/{whatsapp_number}?text={quote(whatsapp_message)}"
 
-        st.markdown(
-            f"""
-            <a
-                href="{whatsapp_url}"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="receipt-whatsapp-button"
-            >
-                📱 Open WhatsApp Message
-            </a>
-            """,
-            unsafe_allow_html=True,
+        st.link_button(
+            "📱 Open WhatsApp Message",
+            whatsapp_url,
+            width="stretch",
         )
 
         st.info(
