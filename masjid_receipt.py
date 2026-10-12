@@ -3356,7 +3356,7 @@ if st.session_state.pdf_bytes:
 
     if whatsapp_number:
         whatsapp_message = (
-            f"Assalamualaikum {received_from},\n\n"
+            f"Assalamualaikum Mr. {received_from},\n\n"
             f"Thank you for your contribution to {MASJID_NAME}.\n\n"
             f"Masjid Receipt: {st.session_state.generated_receipt_no}\n"
             f"Amount: ₹{amount:,.2f}\n"
