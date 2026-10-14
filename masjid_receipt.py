@@ -1890,7 +1890,7 @@ def generate_receipt_pdf(
             Paragraph("<b>Received From</b>", normal),
             Paragraph(
                 received_from.strip()
-                if received_from.strip().lower() == "jamaat"
+                if received_from.strip().casefold() in {"friday jamaat", "jamaat"}
                 else f"Mr. {received_from.strip()}",
                 normal,
             ),
