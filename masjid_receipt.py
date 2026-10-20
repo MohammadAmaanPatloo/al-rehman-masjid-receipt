@@ -1743,11 +1743,11 @@ def generate_receipt_pdf(
 
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=(receipt_width, 180 * mm),
-        rightMargin=7 * mm,
-        leftMargin=7 * mm,
-        topMargin=5 * mm,
-        bottomMargin=5 * mm,
+        pagesize=(receipt_width, 145 * mm),
+        rightMargin=5 * mm,
+        leftMargin=5 * mm,
+        topMargin=4 * mm,
+        bottomMargin=4 * mm,
     )
 
     styles = getSampleStyleSheet()
