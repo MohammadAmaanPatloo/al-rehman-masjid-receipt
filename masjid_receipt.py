@@ -1260,9 +1260,9 @@ def save_masjid_monthy_statement(
             ["Salary Paid to Imam Sahib.", salary_imam],  # Row 5
             ["a) Masjid Electricity Paid", masjid_electricity],  # Row 6
             ["b) Darasgah Electricity Paid", darasgah_electricity],  # Row 7
-            ["Amount Credited to Bank", deposits_credits],  # Row 8
-            ["Amount Debited from Bank", withdrawals_debits],  # Row 9
-            ["", ""],  # Row 10
+            ["Other Expenses", other_expenses],  # Row 8
+            ["Amount Credited to Bank", deposits_credits],  # Row 9
+            ["Amount Debited from Bank", withdrawals_debits],  # Row 10
             ["", ""],  # Row 11
             [
                 "Balance with J&K Bank excluding Interest",
